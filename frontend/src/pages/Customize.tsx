@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from "react";
-import { Canvas as FabricCanvas, FabricImage, FabricText, FabricObject } from "fabric";
+import { Canvas as FabricCanvas, FabricImage, FabricText } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { useLocation } from "react-router-dom";
 import {
   Upload,
   Type,
@@ -14,8 +17,6 @@ import {
   RotateCw,
   Download,
   ShoppingCart,
-  ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 import { toast } from "sonner";
 import { HexColorPicker } from "react-colorful";
@@ -39,12 +40,18 @@ export default function Customize() {
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [selectedColor, setSelectedColor] = useState(TSHIRT_COLORS[0].value);
   const [selectedSize, setSelectedSize] = useState("M");
-  const [basePrice] = useState(15.99);
+  const [basePrice] = useState(500); // Base price in Rs
   const [customizationCost, setCustomizationCost] = useState(0);
   const [textColor, setTextColor] = useState("#000000");
   const [fontSize, setFontSize] = useState(40);
   const [selectedFont, setSelectedFont] = useState("Arial");
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [textInput, setTextInput] = useState("");
+  const [showBackground, setShowBackground] = useState(false);
+  const location = useLocation();
+  const productImageUrl = (location.state as any)?.productImage as string | undefined;
+  const [transparentBgEnabled, setTransparentBgEnabled] = useState(false);
+  const [transparentColor] = useState<string>("#ffffff");
 
   const totalPrice = basePrice + customizationCost;
 
@@ -54,24 +61,81 @@ export default function Customize() {
     const canvas = new FabricCanvas(canvasRef.current, {
       width: 500,
       height: 600,
-      backgroundColor: "#f5f5f5",
+      backgroundColor: "transparent",
     });
 
     setFabricCanvas(canvas);
 
-    // Add T-shirt base
-    addTShirtBase(canvas, selectedColor);
+    // Optional photo background behind T-shirt
+    if (showBackground) {
+      addBackgroundPhoto(canvas);
+    }
+
+    // Add product image base or default SVG base
+    if (productImageUrl) {
+      addProductPhotoBase(canvas, productImageUrl);
+    } else {
+      addTShirtBase(canvas, selectedColor);
+    }
+
+    // Recalculate cost in real-time when user edits objects
+    const recalc = () => updateCustomizationCost(canvas);
+    const recalcLive = () => updateCustomizationCost(canvas);
+
+    canvas.on("object:added", recalc);
+    canvas.on("object:removed", recalc);
+    canvas.on("object:modified", recalc);
+    canvas.on("object:scaling", recalcLive);
+    canvas.on("object:moving", recalcLive);
+    canvas.on("object:rotating", recalcLive);
+    canvas.on("selection:updated", recalcLive);
+    canvas.on("selection:created", recalcLive);
 
     return () => {
+      canvas.off("object:added");
+      canvas.off("object:removed");
+      canvas.off("object:modified");
+      canvas.off("object:scaling");
+      canvas.off("object:moving");
+      canvas.off("object:rotating");
+      canvas.off("selection:updated");
+      canvas.off("selection:created");
       canvas.dispose();
     };
   }, []);
+
+  // Toggle background photo on/off
+  useEffect(() => {
+    if (!fabricCanvas) return;
+    const objects = fabricCanvas.getObjects();
+    const bg = objects.find((o) => (o as any).name === "bg-photo");
+    if (showBackground && !bg) {
+      addBackgroundPhoto(fabricCanvas);
+      (fabricCanvas as any).backgroundColor = "#f5f5f5";
+      fabricCanvas.renderAll();
+    } else if (!showBackground && bg) {
+      fabricCanvas.remove(bg);
+      (fabricCanvas as any).backgroundColor = "transparent";
+      fabricCanvas.renderAll();
+    }
+  }, [showBackground, fabricCanvas]);
 
   useEffect(() => {
     if (fabricCanvas) {
       updateTShirtColor(fabricCanvas, selectedColor);
     }
   }, [selectedColor, fabricCanvas]);
+
+  // Live update active text styling and recalc cost
+  useEffect(() => {
+    if (!fabricCanvas) return;
+    const active = fabricCanvas.getActiveObject();
+    if (active && (active as any).name === "custom-text") {
+      (active as any).set({ fontSize, fill: textColor, fontFamily: selectedFont });
+      fabricCanvas.requestRenderAll();
+      updateCustomizationCost(fabricCanvas);
+    }
+  }, [fontSize, textColor, selectedFont]);
 
   const addTShirtBase = (canvas: FabricCanvas, color: string) => {
     const tshirtSvg = `
@@ -99,8 +163,58 @@ export default function Customize() {
     });
   };
 
+  const addBackgroundPhoto = (canvas: FabricCanvas) => {
+    const url = "/placeholder.svg"; // uses existing public asset
+    FabricImage.fromURL(url).then((img) => {
+      img.set({ left: 0, top: 0, selectable: false, evented: false, opacity: 0.25 });
+      // cover entire canvas area
+      const canvasW = 500;
+      const canvasH = 600;
+      const scaleX = canvasW / (img.width || canvasW);
+      const scaleY = canvasH / (img.height || canvasH);
+      const scale = Math.max(scaleX, scaleY);
+      img.scale(scale);
+      const newW = (img.width || 0) * scale;
+      const newH = (img.height || 0) * scale;
+      img.set({ left: (canvasW - newW) / 2, top: (canvasH - newH) / 2 });
+      (img as any).name = "bg-photo";
+      canvas.add(img);
+      canvas.sendObjectToBack(img);
+      (canvas as any).backgroundColor = "#f5f5f5";
+      canvas.renderAll();
+    });
+  };
+
+  const addProductPhotoBase = (canvas: FabricCanvas, url: string) => {
+    FabricImage.fromURL(url, { crossOrigin: "anonymous" }).then((img) => {
+      img.set({ selectable: false, evented: false });
+      // Cover entire canvas area for full width/height
+      const canvasW = 500;
+      const canvasH = 600;
+      const scaleX = canvasW / (img.width || canvasW);
+      const scaleY = canvasH / (img.height || canvasH);
+      const scale = Math.max(scaleX, scaleY);
+      img.scale(scale);
+      const newW = (img.width || 0) * scale;
+      const newH = (img.height || 0) * scale;
+      img.set({ left: (canvasW - newW) / 2, top: (canvasH - newH) / 2 });
+      (img as any).name = "tshirt-base-photo";
+      canvas.add(img);
+      // keep base above background but below custom elements
+      canvas.sendObjectToBack(img);
+      // but ensure bg-photo (if exists) stays at very back
+      const bg = canvas.getObjects().find((o) => (o as any).name === "bg-photo");
+      if (bg) {
+        canvas.sendObjectToBack(bg);
+      }
+      canvas.renderAll();
+    });
+  };
+
   const updateTShirtColor = (canvas: FabricCanvas, color: string) => {
     const objects = canvas.getObjects();
+    const hasPhotoBase = objects.some((obj) => (obj as any).name === "tshirt-base-photo");
+    if (hasPhotoBase) return; // color not applicable when using product photo base
     const tshirtBase = objects.find((obj) => (obj as any).name === "tshirt-base");
     
     if (tshirtBase) {
@@ -112,8 +226,13 @@ export default function Customize() {
 
   const handleAddText = () => {
     if (!fabricCanvas) return;
+    const content = textInput.trim();
+    if (!content) {
+      toast.error("Please type your text first.");
+      return;
+    }
 
-    const text = new FabricText("Your Text Here", {
+    const text = new FabricText(content, {
       left: 200,
       top: 250,
       fontSize: fontSize,
@@ -125,8 +244,8 @@ export default function Customize() {
     fabricCanvas.add(text);
     fabricCanvas.setActiveObject(text);
     fabricCanvas.renderAll();
-    
-    updateCustomizationCost();
+
+    updateCustomizationCost(fabricCanvas);
     toast.success("Text added! Drag to reposition.");
   };
 
@@ -150,8 +269,12 @@ export default function Customize() {
         fabricCanvas.add(img);
         fabricCanvas.setActiveObject(img);
         fabricCanvas.renderAll();
-        
-        updateCustomizationCost();
+
+        if (transparentBgEnabled) {
+          applyTransparentBgToActiveImage(true);
+        }
+
+        updateCustomizationCost(fabricCanvas);
         toast.success("Image uploaded! Drag to reposition.");
       });
     };
@@ -163,10 +286,14 @@ export default function Customize() {
     if (!fabricCanvas) return;
     
     const activeObject = fabricCanvas.getActiveObject();
-    if (activeObject && (activeObject as any).name !== "tshirt-base") {
+    if (
+      activeObject &&
+      (activeObject as any).name !== "tshirt-base" &&
+      (activeObject as any).name !== "tshirt-base-photo"
+    ) {
       fabricCanvas.remove(activeObject);
       fabricCanvas.renderAll();
-      updateCustomizationCost();
+      updateCustomizationCost(fabricCanvas);
       toast.success("Element deleted!");
     }
   };
@@ -186,7 +313,8 @@ export default function Customize() {
     
     const objects = fabricCanvas.getObjects();
     objects.forEach((obj) => {
-      if ((obj as any).name !== "tshirt-base") {
+      const name = (obj as any).name;
+      if (name !== "tshirt-base" && name !== "tshirt-base-photo") {
         fabricCanvas.remove(obj);
       }
     });
@@ -222,14 +350,55 @@ export default function Customize() {
     toast.success("Added to cart!");
   };
 
-  const updateCustomizationCost = () => {
+  const updateCustomizationCost = (canvas?: FabricCanvas) => {
+    const canvasRefLocal = canvas || fabricCanvas;
+    if (!canvasRefLocal) return;
+
+    const objects = canvasRefLocal.getObjects();
+    const customObjects = objects.filter((obj) => {
+      const name = (obj as any).name;
+      return name !== "tshirt-base" && name !== "tshirt-base-photo" && name !== "bg-photo";
+    });
+
+    // Pricing: Rs 0.02 per pixel of design area (sum of bounding boxes)
+    let totalArea = 0;
+    customObjects.forEach((obj) => {
+      const width = (obj.getScaledWidth && obj.getScaledWidth()) || obj.width || 0;
+      const height = (obj.getScaledHeight && obj.getScaledHeight()) || obj.height || 0;
+      totalArea += Math.max(0, width) * Math.max(0, height);
+    });
+
+    const cost = totalArea * 0.02; // Rs per pixel
+    setCustomizationCost(Number(cost.toFixed(2)));
+  };
+
+  const applyTransparentBgToActiveImage = (enabled: boolean) => {
     if (!fabricCanvas) return;
-    
-    const objects = fabricCanvas.getObjects();
-    const customObjects = objects.filter((obj) => (obj as any).name !== "tshirt-base");
-    
-    // $5 per customization element
-    setCustomizationCost(customObjects.length * 5);
+    const active = fabricCanvas.getActiveObject() as any;
+    if (!active || active.type !== "image") {
+      if (enabled) toast.error("Select an image to make background transparent.");
+      return;
+    }
+
+    const fabricNS: any = (window as any).fabric;
+    const RemoveColor = fabricNS?.Image?.filters?.RemoveColor;
+    if (!RemoveColor) {
+      toast.error("Transparent background not supported in this browser.");
+      return;
+    }
+
+    active.filters = active.filters || [];
+    if (enabled) {
+      // remove any existing RemoveColor filter then add one
+      active.filters = active.filters.filter((f: any) => !(f && f.type === "RemoveColor"));
+      const filter = new RemoveColor({ color: transparentColor, distance: 0.25 });
+      filter.type = "RemoveColor"; // help identification
+      active.filters.push(filter);
+    } else {
+      active.filters = active.filters.filter((f: any) => !(f && f.type === "RemoveColor"));
+    }
+    active.applyFilters();
+    fabricCanvas.requestRenderAll();
   };
 
   return (
@@ -282,15 +451,15 @@ export default function Customize() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Base Price:</span>
-                    <span className="font-medium">${basePrice.toFixed(2)}</span>
+                    <span className="font-medium">₹{basePrice.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Customization:</span>
-                    <span className="font-medium">${customizationCost.toFixed(2)}</span>
+                    <span className="font-medium">₹{customizationCost.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2 text-lg font-bold">
                     <span>Total:</span>
-                    <span className="text-primary">${totalPrice.toFixed(2)}</span>
+                    <span className="text-primary">₹{totalPrice.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -339,6 +508,16 @@ export default function Customize() {
 
                 <TabsContent value="text" className="space-y-4 pt-4">
                   <div>
+                    <Label className="mb-2 block">Your Text</Label>
+                    <Input
+                      value={textInput}
+                      onChange={(e) => setTextInput(e.target.value)}
+                      placeholder="Type here..."
+                      className="mb-4"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddText();
+                      }}
+                    />
                     <Label className="mb-2 block">Font</Label>
                     <select
                       value={selectedFont}
@@ -387,6 +566,26 @@ export default function Customize() {
                 </TabsContent>
 
                 <TabsContent value="image" className="space-y-4 pt-4">
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <Label className="text-sm">Show Background Photo</Label>
+                      <p className="text-xs text-muted-foreground">Toggle mannequin/background image</p>
+                    </div>
+                    <Switch checked={showBackground} onCheckedChange={setShowBackground} />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <Label className="text-sm">Transparent background</Label>
+                      <p className="text-xs text-muted-foreground">Makes white pixels transparent on selected image</p>
+                    </div>
+                    <Switch
+                      checked={transparentBgEnabled}
+                      onCheckedChange={(v) => {
+                        setTransparentBgEnabled(v);
+                        applyTransparentBgToActiveImage(v);
+                      }}
+                    />
+                  </div>
                   <div>
                     <Label className="mb-2 block">Upload Image</Label>
                     <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
