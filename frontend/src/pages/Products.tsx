@@ -128,7 +128,7 @@ export default function Products() {
                   <span className="text-lg font-bold text-primary">
                     From ${product.price.toFixed(2)}
                   </span>
-                  <Link to="/customize">
+                  <Link to="/customize" state={{ productImage: product.image }}>
                     <Button size="sm">Customize</Button>
                   </Link>
                 </div>
