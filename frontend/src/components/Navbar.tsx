@@ -1,12 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, User, Menu, X, Search, Phone } from "lucide-react";
+import { ShoppingCart, User, Menu, X, Search, Phone, LogOut } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { isAuthenticated, logout } = useAuth();
   
   const isActive = (path: string) => location.pathname === path;
   
@@ -70,9 +72,21 @@ export const Navbar = () => {
             <Button variant="ghost" size="icon" className="hidden sm:flex">
               <Search className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
-            </Button>
+            {!isAuthenticated ? (
+              <div className="hidden sm:flex items-center gap-2">
+                <Link to="/login">
+                  <Button variant="ghost" className={cn(isActive('/login') && 'bg-primary/10 text-primary')}>Login</Button>
+                </Link>
+                <Link to="/signup">
+                  <Button className="">Sign up</Button>
+                </Link>
+              </div>
+            ) : (
+              <Button variant="ghost" onClick={logout} className="flex items-center gap-2">
+                <LogOut className="h-5 w-5" />
+                Logout
+              </Button>
+            )}
             <Link to="/cart">
               <Button variant="ghost" size="icon" className="relative">
                 <ShoppingCart className="h-5 w-5" />
@@ -117,6 +131,20 @@ export const Navbar = () => {
                   {link.name}
                 </Link>
               ))}
+              {!isAuthenticated ? (
+                <div className="flex flex-col gap-2">
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="rounded-md px-4 py-3 text-sm font-medium hover:bg-muted">
+                    Login
+                  </Link>
+                  <Link to="/signup" onClick={() => setMobileMenuOpen(false)}>
+                    <Button className="w-full">Sign up</Button>
+                  </Link>
+                </div>
+              ) : (
+                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); logout(); }} className="justify-start">
+                  <LogOut className="h-5 w-5 mr-2" /> Logout
+                </Button>
+              )}
             </div>
           </div>
         )}
