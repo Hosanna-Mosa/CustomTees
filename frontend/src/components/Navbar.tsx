@@ -1,9 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, User, Menu, X, Search, Phone, LogOut } from "lucide-react";
+import { ShoppingCart, User, Menu, X, Search, Phone } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -82,10 +83,19 @@ export const Navbar = () => {
                 </Link>
               </div>
             ) : (
-              <Button variant="ghost" onClick={logout} className="flex items-center gap-2">
-                <LogOut className="h-5 w-5" />
-                Logout
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile">Profile</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={logout}>Logout</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             <Link to="/cart">
               <Button variant="ghost" size="icon" className="relative">
@@ -141,9 +151,10 @@ export const Navbar = () => {
                   </Link>
                 </div>
               ) : (
-                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); logout(); }} className="justify-start">
-                  <LogOut className="h-5 w-5 mr-2" /> Logout
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className="rounded-md px-4 py-3 text-sm font-medium hover:bg-muted">Profile</Link>
+                  <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); logout(); }} className="justify-start">Logout</Button>
+                </div>
               )}
             </div>
           </div>

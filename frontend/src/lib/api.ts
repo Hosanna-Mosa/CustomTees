@@ -42,6 +42,12 @@ export const login = async (data: { email: string; password: string }) => {
   return request('/auth/login', { method: 'POST', body: data });
 };
 
+export const getMe = async () => request('/auth/me');
+export const updateMe = async (body: { name?: string }) => request('/auth/me', { method: 'PUT', body });
+export const addAddress = async (addr: any) => request('/auth/me/addresses', { method: 'POST', body: addr });
+export const updateAddress = async (id: string, addr: any) => request(`/auth/me/addresses/${id}`, { method: 'PUT', body: addr });
+export const deleteAddress = async (id: string) => request(`/auth/me/addresses/${id}`, { method: 'DELETE' });
+
 export const adminAddProduct = async (form: FormData) => {
   return request('/products', { method: 'POST', body: form, isForm: true });
 };
