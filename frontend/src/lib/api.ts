@@ -1,4 +1,4 @@
-const BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:5000/api';
+const BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8000/api';
 
 type Method = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
