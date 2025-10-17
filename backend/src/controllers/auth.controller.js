@@ -32,4 +32,42 @@ export const login = async (req, res) => {
   res.json({ success: true, message: 'Login successful', data: { token, user: profile } });
 };
 
+export const getProfile = async (req, res) => {
+  res.json({ success: true, data: req.user });
+};
+
+export const updateProfile = async (req, res) => {
+  const fields = ['name'];
+  fields.forEach((f) => {
+    if (req.body[f] !== undefined) req.user[f] = req.body[f];
+  });
+  await req.user.save();
+  res.json({ success: true, data: req.user });
+};
+
+export const addAddress = async (req, res) => {
+  const address = req.body;
+  req.user.addresses.push(address);
+  await req.user.save();
+  res.status(201).json({ success: true, data: req.user.addresses });
+};
+
+export const updateAddress = async (req, res) => {
+  const { id } = req.params;
+  const addr = req.user.addresses.id(id);
+  if (!addr) return res.status(404).json({ success: false, message: 'Address not found' });
+  Object.assign(addr, req.body);
+  await req.user.save();
+  res.json({ success: true, data: req.user.addresses });
+};
+
+export const deleteAddress = async (req, res) => {
+  const { id } = req.params;
+  const addr = req.user.addresses.id(id);
+  if (!addr) return res.status(404).json({ success: false, message: 'Address not found' });
+  addr.deleteOne();
+  await req.user.save();
+  res.json({ success: true, data: req.user.addresses });
+};
+
 
