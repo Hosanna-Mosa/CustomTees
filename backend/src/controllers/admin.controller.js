@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import Product from '../models/Product.js';
+import Order from '../models/Order.js';
 
 export const listUsers = async (req, res) => {
   const users = await User.find().select('-password').sort({ createdAt: -1 });
@@ -17,8 +18,8 @@ export const getStats = async (req, res) => {
 };
 
 export const listOrders = async (_req, res) => {
-  // Placeholder empty list until orders model exists
-  res.json({ success: true, data: [] });
+  const orders = await Order.find().populate('user', 'name email').populate('items.product').sort({ createdAt: -1 });
+  res.json({ success: true, data: orders });
 };
 
 

@@ -25,11 +25,14 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   }, [token])
 
   const login = useCallback(async (email: string, password: string) => {
+    console.log('Attempting login with:', email)
     const res = await api.login(email, password)
+    console.log('Login response:', res)
     const { token, user } = res.data
     if (user?.role !== 'admin') {
       throw new Error('Not authorized')
     }
+    console.log('Setting token:', token.substring(0, 20) + '...')
     setToken(token)
     navigate('/')
   }, [navigate])

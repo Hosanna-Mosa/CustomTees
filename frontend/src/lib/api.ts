@@ -60,6 +60,16 @@ export const adminDeleteProduct = async (id: string) => {
   return request(`/products/${id}`, { method: 'DELETE' });
 };
 
+// Orders
+export const createOrder = async (body: { productId: string; quantity?: number; paymentMethod: 'cod' | 'razorpay'; shippingAddress?: any }) => {
+  return request('/orders', { method: 'POST', body });
+};
+
+export const myOrders = async () => {
+  const res = await request('/orders/mine');
+  return (res as any).data;
+};
+
 export default { request };
 
 
