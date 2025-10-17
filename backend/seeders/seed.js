@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import slugify from 'slugify';
 import connectDB from '../src/config/db.js';
 import Product from '../src/models/Product.js';
+import User from '../src/models/User.js';
+import { hashPassword } from '../src/services/auth.service.js';
 import { configureCloudinary } from '../src/services/cloudinary.service.js';
 
 dotenv.config();
@@ -20,7 +22,7 @@ const base = [
 ];
 
 try {
-  await Product.deleteMany({});
+  await Promise.all([Product.deleteMany({}), User.deleteMany({ role: 'admin' })]);
   const docs = [];
   for (let i = 0; i < base.length; i++) {
     const p = base[i];
@@ -30,6 +32,12 @@ try {
   }
   await Product.insertMany(docs);
   console.log('Seeded 5 products');
+  // Admin user
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+  const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
+  const hashed = await hashPassword(adminPass);
+  await User.create({ name: 'Admin', email: adminEmail, password: hashed, role: 'admin' });
+  console.log(`Admin user created: ${adminEmail} / ${adminPass}`);
 } catch (e) {
   console.error(e);
 }
