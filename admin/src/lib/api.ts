@@ -45,6 +45,18 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
+  forgotPassword: (email: string) =>
+    request<{ success: boolean; message: string }>(`/auth/forgot-password`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (email: string, code: string, newPassword: string) =>
+    request<{ success: boolean; message: string }>(`/auth/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ email, code, newPassword }),
+    }),
+
   // Admin
   getUsers: () => request<{ success: boolean; data: any[] }>(`/admin/users`),
   getStats: () => request<{ success: boolean; data: { users: number; products: number; orders: number } }>(`/admin/stats`),

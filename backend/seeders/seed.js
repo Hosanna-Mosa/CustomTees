@@ -35,10 +35,10 @@ try {
     const images = [PLACEHOLDER(i + 1)];
     docs.push({ ...p, slug, images });
   }
-  await Product.insertMany(docs);
+  // await Product.insertMany(docs);
   console.log('Seeded 5 products');
   // Admin user
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+  const adminEmail = process.env.ADMIN_EMAIL || 'sunandvemavarapu@gmail.com';
   const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
   const hashed = await hashPassword(adminPass);
   await User.create({ name: 'Admin', email: adminEmail, password: hashed, role: 'admin' });

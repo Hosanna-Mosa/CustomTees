@@ -42,6 +42,14 @@ export const login = async (data: { email: string; password: string }) => {
   return request('/auth/login', { method: 'POST', body: data });
 };
 
+export const forgotPassword = async (data: { email: string }) => {
+  return request('/auth/forgot-password', { method: 'POST', body: data });
+};
+
+export const resetPassword = async (data: { email: string; code: string; newPassword: string }) => {
+  return request('/auth/reset-password', { method: 'POST', body: data });
+};
+
 export const getMe = async () => request('/auth/me');
 export const updateMe = async (body: { name?: string }) => request('/auth/me', { method: 'PUT', body });
 export const addAddress = async (addr: any) => request('/auth/me/addresses', { method: 'POST', body: addr });

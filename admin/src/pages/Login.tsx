@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
+import { PasswordInput } from '../components/PasswordInput'
 
 export function Login() {
   const { login } = useAuth()
@@ -31,12 +32,17 @@ export function Login() {
         </label>
         <label>
           <span>Password</span>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
+          <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
         </label>
         {error && <div className="error">{error}</div>}
         <button className="primary" disabled={loading} type="submit">
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
+        <div style={{ textAlign: 'center', marginTop: '16px' }}>
+          <a href="/forgot-password" style={{ color: '#007bff', textDecoration: 'none' }}>
+            Forgot Password?
+          </a>
+        </div>
       </form>
     </div>
   )

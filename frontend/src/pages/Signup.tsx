@@ -3,6 +3,7 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { toast } from 'sonner';
 import { signup } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
@@ -45,7 +46,7 @@ export default function SignupPage() {
         <form onSubmit={onSubmit} className="space-y-4">
           <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
           <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <PasswordInput placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           <Button type="submit" disabled={loading} className="w-full">{loading ? 'Loading...' : 'Sign up'}</Button>
           <div className="text-sm text-muted-foreground text-center">
             Already have an account? <Link to="/login" className="text-primary">Login</Link>
