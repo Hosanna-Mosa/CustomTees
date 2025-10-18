@@ -1,5 +1,8 @@
 import mongoose from 'mongoose';
 
+//
+// 📸 Image schema
+//
 const imageSchema = new mongoose.Schema(
   {
     url: { type: String, required: true },
@@ -8,7 +11,9 @@ const imageSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// Layer schema for predefined design elements
+//
+// 🎨 Layer schema — for predefined or user-created design elements
+//
 const layerSchema = new mongoose.Schema(
   {
     layerType: { type: String, enum: ['text', 'image'], required: true },
@@ -37,7 +42,9 @@ const layerSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// Design schema for product templates or default layouts
+//
+// 🧩 Design schema — represents a saved layout or template (Fabric.js/Konva JSON export)
+//
 const designSchema = new mongoose.Schema(
   {
     type: { type: String, enum: ['predefined', 'user'], default: 'predefined' },
@@ -53,6 +60,21 @@ const designSchema = new mongoose.Schema(
   { _id: false }
 );
 
+//
+// 🧤 Variant schema — maps colors directly to image sets
+//
+const variantSchema = new mongoose.Schema(
+  {
+    color: { type: String, required: true }, // example: "Red"
+    colorCode: { type: String },             // example: "#FF0000" (for UI color picker)
+    images: { type: [imageSchema], validate: (v) => v.length > 0 }, // mockups for that color
+  },
+  { _id: false }
+);
+
+//
+// 🏷️ Main Product schema
+//
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -60,11 +82,10 @@ const productSchema = new mongoose.Schema(
     description: String,
     price: { type: Number, required: true },
     sizes: [{ type: String }],
-    colors: [{ type: String }],
-    images: {
-      type: [imageSchema],
-      validate: (v) => v.length > 0,
-    },
+
+    // 👇 Replaces old colors/images with color-image mapping
+    variants: [variantSchema],
+
     stock: { type: Number, default: 0 },
 
     // 👇 Customization fields
@@ -74,8 +95,16 @@ const productSchema = new mongoose.Schema(
       enum: ['predefined', 'own', 'both'],
       default: 'both',
     },
-    designTemplate: designSchema, // base design or template (for predefined customization)
 
+    // Base template (used for predefined designs)
+    designTemplate: designSchema,
+
+    // Optional future extension — customization pricing rules
+    customizationPricing: {
+      perTextLayer: { type: Number, default: 10 },
+      perImageLayer: { type: Number, default: 20 },
+      sizeMultiplier: { type: Number, default: 0.1 },
+    },
   },
   { timestamps: true }
 );

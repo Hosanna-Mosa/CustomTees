@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
 import { Canvas as FabricCanvas, FabricImage, FabricText } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,92 +17,318 @@ import {
   RotateCw,
   Download,
   ShoppingCart,
+  ArrowLeft,
+  ArrowRight,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { HexColorPicker } from "react-colorful";
+import { motion, AnimatePresence } from "framer-motion";
+import { fetchProducts, fetchProductBySlug } from "@/lib/api";
 
-const TSHIRT_COLORS = [
-  { name: "White", value: "#FFFFFF" },
-  { name: "Black", value: "#000000" },
-  { name: "Red", value: "#EF4444" },
-  { name: "Blue", value: "#3B82F6" },
-  { name: "Green", value: "#10B981" },
-  { name: "Yellow", value: "#FCD34D" },
-  { name: "Pink", value: "#EC4899" },
-  { name: "Purple", value: "#A855F7" },
+// Types
+type Step = "category" | "product" | "color" | "design";
+
+interface Category {
+  id: string;
+  name: string;
+  icon?: string;
+}
+
+interface Product {
+  _id: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  sizes: string[];
+  variants: Array<{
+    color: string;
+    colorCode: string;
+    images: Array<{ url: string; public_id: string }>;
+  }>;
+  customizable: boolean;
+  customizationType: "predefined" | "own" | "both";
+  designTemplate?: any;
+  customizationPricing?: {
+    perTextLayer: number;
+    perImageLayer: number;
+    sizeMultiplier: number;
+  };
+}
+
+interface DesignLayer {
+  id: string;
+  type: "text" | "image";
+  data: {
+    content?: string;
+    font?: string;
+    color?: string;
+    size?: number;
+    url?: string;
+    x: number;
+    y: number;
+    scale: number;
+    rotation: number;
+  };
+  cost: number;
+}
+
+const CATEGORIES: Category[] = [
+  { id: "tshirts", name: "T-Shirts", icon: "👕" },
+  { id: "hoodies", name: "Hoodies", icon: "🧥" },
+  { id: "tanks", name: "Tank Tops", icon: "🎽" },
+  { id: "polo", name: "Polo Shirts", icon: "👔" },
 ];
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const FONTS = ["Arial", "Helvetica", "Times New Roman", "Courier New", "Georgia", "Verdana"];
 
 export default function Customize() {
+  // Step management
+  const [step, setStep] = useState<Step>("category");
+  
+  // Data state
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState("M");
+  
+  // Canvas state
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
-  const [selectedColor, setSelectedColor] = useState(TSHIRT_COLORS[0].value);
-  const [selectedSize, setSelectedSize] = useState("M");
-  const [basePrice] = useState(500); // Base price in Rs
-  const [customizationCost, setCustomizationCost] = useState(0);
+  
+  // Design state
+  const [designSide, setDesignSide] = useState<"front" | "back">("front");
+  const [frontDesignLayers, setFrontDesignLayers] = useState<DesignLayer[]>([]);
+  const [backDesignLayers, setBackDesignLayers] = useState<DesignLayer[]>([]);
   const [textColor, setTextColor] = useState("#000000");
   const [fontSize, setFontSize] = useState(40);
   const [selectedFont, setSelectedFont] = useState("Arial");
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [showBackground, setShowBackground] = useState(false);
-  const location = useLocation();
-  const productImageUrl = (location.state as any)?.productImage as string | undefined;
   const [transparentBgEnabled, setTransparentBgEnabled] = useState(false);
   const [transparentColor] = useState<string>("#ffffff");
 
+  // Current design layers based on selected side
+  const designLayers = designSide === "front" ? frontDesignLayers : backDesignLayers;
+  const setDesignLayers = designSide === "front" ? setFrontDesignLayers : setBackDesignLayers;
+  
+  // Loading state
+  const [loading, setLoading] = useState(false);
+  
+  // Pricing
+  const basePrice = selectedProduct?.price || 0;
+  const frontCustomizationCost = frontDesignLayers.reduce((sum, layer) => sum + layer.cost, 0);
+  const backCustomizationCost = backDesignLayers.reduce((sum, layer) => sum + layer.cost, 0);
+  const customizationCost = frontCustomizationCost + backCustomizationCost;
   const totalPrice = basePrice + customizationCost;
-
-  useEffect(() => {
-    if (!canvasRef.current) return;
-
-    const canvas = new FabricCanvas(canvasRef.current, {
+  // Helper: initialize Fabric canvas
+  const setupCanvasInstance = useCallback((el: HTMLCanvasElement) => {
+    if (didInitCanvasRef.current || fabricCanvas) return;
+    const canvas = new FabricCanvas(el, {
       width: 500,
       height: 600,
       backgroundColor: "transparent",
     });
-
     setFabricCanvas(canvas);
+    didInitCanvasRef.current = true;
 
-    // Optional photo background behind T-shirt
     if (showBackground) {
       addBackgroundPhoto(canvas);
     }
-
-    // Add product image base or default SVG base
-    if (productImageUrl) {
-      addProductPhotoBase(canvas, productImageUrl);
-    } else {
-      addTShirtBase(canvas, selectedColor);
+    if (selectedProduct && selectedColor) {
+      const variant = selectedProduct.variants.find((v) => v.color === selectedColor);
+      const imgUrl = variant ? pickVariantImageForSide(variant, designSide) : undefined;
+      if (imgUrl) {
+        // eslint-disable-next-line no-console
+        console.log("[Customize] Loading base image for", designSide, ":", imgUrl);
+        addProductPhotoBase(canvas, imgUrl);
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn("[Customize] No image found for", designSide, "side");
+      }
     }
 
-    // Recalculate cost in real-time when user edits objects
-    const recalc = () => updateCustomizationCost(canvas);
-    const recalcLive = () => updateCustomizationCost(canvas);
+    const updateLayerData = () => {
+      if (!fabricCanvas) return;
+      const objects = fabricCanvas.getObjects();
+      const updatedLayers = designLayers.map((layer) => {
+        const obj = objects.find((o) => (o as any).layerId === layer.id);
+        if (obj) {
+          return {
+            ...layer,
+            data: {
+              ...layer.data,
+              x: obj.left || 0,
+              y: obj.top || 0,
+              scale: (obj.scaleX || 1) * (obj.scaleY || 1),
+              rotation: obj.angle || 0,
+            },
+          };
+        }
+        return layer;
+      });
+      setDesignLayers(updatedLayers);
+    };
+    canvas.on("object:modified", updateLayerData);
+    canvas.on("object:scaling", updateLayerData);
+    canvas.on("object:moving", updateLayerData);
+    canvas.on("object:rotating", updateLayerData);
+  }, [designLayers, fabricCanvas, selectedColor, selectedProduct, setDesignLayers, showBackground, step]);
 
-    canvas.on("object:added", recalc);
-    canvas.on("object:removed", recalc);
-    canvas.on("object:modified", recalc);
-    canvas.on("object:scaling", recalcLive);
-    canvas.on("object:moving", recalcLive);
-    canvas.on("object:rotating", recalcLive);
-    canvas.on("selection:updated", recalcLive);
-    canvas.on("selection:created", recalcLive);
+  // Canvas element ref
+  const canvasElRef = useCallback((el: HTMLCanvasElement | null) => {
+    canvasRef.current = el;
+    if (el) {
+      if (step === "design") {
+        setupCanvasInstance(el);
+      }
+    }
+  }, [setupCanvasInstance, step]);
+
+
+  // Focused logging for front/back switching
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[Customize] Side changed to:", designSide);
+  }, [designSide]);
+
+  // Initialize canvas only when in design step (layout effect for earlier timing)
+  const didInitCanvasRef = useRef(false);
+  useLayoutEffect(() => {
+    if (step !== "design" || !canvasRef.current) return;
+    if (didInitCanvasRef.current && fabricCanvas) {
+      return;
+    }
+    setupCanvasInstance(canvasRef.current);
 
     return () => {
-      canvas.off("object:added");
-      canvas.off("object:removed");
-      canvas.off("object:modified");
-      canvas.off("object:scaling");
-      canvas.off("object:moving");
-      canvas.off("object:rotating");
-      canvas.off("selection:updated");
-      canvas.off("selection:created");
-      canvas.dispose();
+      if (fabricCanvas) {
+        fabricCanvas.off("object:modified");
+        fabricCanvas.off("object:scaling");
+        fabricCanvas.off("object:moving");
+        fabricCanvas.off("object:rotating");
+        fabricCanvas.dispose();
+      }
+      didInitCanvasRef.current = false;
     };
-  }, []);
+  }, [step, selectedProduct, selectedColor, designSide, setupCanvasInstance, fabricCanvas]);
+
+  // Switch base image when changing sides
+  useEffect(() => {
+    if (!fabricCanvas || step !== "design") return;
+    
+    // eslint-disable-next-line no-console
+    console.log("[Customize] Side switching to:", designSide);
+    
+    // Clear ALL objects first
+    fabricCanvas.clear();
+    
+    // Add background if enabled
+    if (showBackground) {
+      addBackgroundPhoto(fabricCanvas);
+    }
+    
+    // Replace base image according to side
+    if (selectedProduct && selectedColor) {
+      const variant = selectedProduct.variants.find((v) => v.color === selectedColor);
+      const imgUrl = variant ? pickVariantImageForSide(variant, designSide) : undefined;
+      if (imgUrl) {
+        // eslint-disable-next-line no-console
+        console.log("[Customize] Loading", designSide, "image:", imgUrl);
+        
+        // Add new base image and wait for it to load before proceeding
+        FabricImage.fromURL(imgUrl, { crossOrigin: "anonymous" })
+          .then((img) => {
+            // eslint-disable-next-line no-console
+            console.log("[Customize] Base image loaded successfully for", designSide, "Dimensions:", img.width, "x", img.height);
+            img.set({ selectable: false, evented: false });
+            
+            // Cover entire canvas area for full width/height
+            const canvasW = 500;
+            const canvasH = 600;
+            const scaleX = canvasW / (img.width || canvasW);
+            const scaleY = canvasH / (img.height || canvasH);
+            const scale = Math.max(scaleX, scaleY);
+            img.scale(scale);
+            const newW = (img.width || 0) * scale;
+            const newH = (img.height || 0) * scale;
+            const left = (canvasW - newW) / 2;
+            const top = (canvasH - newH) / 2;
+            img.set({ left, top });
+            
+            // eslint-disable-next-line no-console
+            console.log("[Customize] Image positioning - Scale:", scale, "Size:", newW, "x", newH, "Position:", left, ",", top);
+            (img as any).name = "tshirt-base-photo";
+            fabricCanvas.add(img);
+            
+            // Send to back but above background
+            fabricCanvas.sendObjectToBack(img);
+            const bg = fabricCanvas.getObjects().find((o) => (o as any).name === "bg-photo");
+            if (bg) {
+              fabricCanvas.sendObjectToBack(bg);
+            }
+            
+            // Debug: Log all objects on canvas
+            const allObjects = fabricCanvas.getObjects();
+            // eslint-disable-next-line no-console
+            console.log("[Customize] Canvas objects after adding base photo:", allObjects.map(o => ({ name: (o as any).name, type: o.type, left: o.left, top: o.top })));
+            
+            // Now reload design layers for current side
+            const currentLayers = designSide === "front" ? frontDesignLayers : backDesignLayers;
+            // eslint-disable-next-line no-console
+            console.log("[Customize] Loading", currentLayers.length, "design elements for", designSide);
+            
+            currentLayers.forEach((layer) => {
+              if (layer.type === "text") {
+                const text = new FabricText(layer.data.content || "", {
+                  left: layer.data.x,
+                  top: layer.data.y,
+                  fontSize: layer.data.size,
+                  fill: layer.data.color,
+                  fontFamily: layer.data.font,
+                  angle: layer.data.rotation,
+                  scaleX: layer.data.scale,
+                  scaleY: layer.data.scale,
+                });
+                (text as any).name = "custom-text";
+                (text as any).layerId = layer.id;
+                fabricCanvas.add(text);
+              } else if (layer.type === "image" && layer.data.url) {
+                FabricImage.fromURL(layer.data.url).then((img) => {
+                  img.set({
+                    left: layer.data.x,
+                    top: layer.data.y,
+                    angle: layer.data.rotation,
+                    scaleX: layer.data.scale,
+                    scaleY: layer.data.scale,
+                  });
+                  (img as any).name = "custom-image";
+                  (img as any).layerId = layer.id;
+                  fabricCanvas.add(img);
+                  fabricCanvas.renderAll();
+                });
+              }
+            });
+            
+            fabricCanvas.renderAll();
+            // eslint-disable-next-line no-console
+            console.log("[Customize] Canvas rendered after adding", designSide, "image");
+          })
+          .catch((err) => {
+            // eslint-disable-next-line no-console
+            console.error("[Customize] Failed to load base image for", designSide, ":", err);
+            toast.error("Failed to load product image");
+          });
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn("[Customize] No", designSide, "image available");
+      }
+    }
+  }, [designSide, fabricCanvas, step, selectedProduct, selectedColor, frontDesignLayers, backDesignLayers, showBackground]);
 
   // Toggle background photo on/off
   useEffect(() => {
@@ -120,22 +346,57 @@ export default function Customize() {
     }
   }, [showBackground, fabricCanvas]);
 
-  useEffect(() => {
-    if (fabricCanvas) {
-      updateTShirtColor(fabricCanvas, selectedColor);
-    }
-  }, [selectedColor, fabricCanvas]);
-
-  // Live update active text styling and recalc cost
+  // Live update active text styling
   useEffect(() => {
     if (!fabricCanvas) return;
     const active = fabricCanvas.getActiveObject();
     if (active && (active as any).name === "custom-text") {
       (active as any).set({ fontSize, fill: textColor, fontFamily: selectedFont });
       fabricCanvas.requestRenderAll();
-      updateCustomizationCost(fabricCanvas);
     }
-  }, [fontSize, textColor, selectedFont]);
+  }, [fontSize, textColor, selectedFont, fabricCanvas]);
+
+  // Step handlers
+  const handleCategorySelect = async (category: Category) => {
+    setSelectedCategory(category);
+    setLoading(true);
+    try {
+      const allProducts = await fetchProducts();
+      // Filter products by category (simplified - you can add category field to products later)
+      setProducts(allProducts);
+      setStep("product");
+      toast.success(`Selected ${category.name}`);
+    } catch (error) {
+      toast.error("Failed to load products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProductSelect = async (product: Product) => {
+    setSelectedProduct(product);
+    setStep("color");
+    toast.success(`Selected ${product.name}`);
+  };
+
+  const handleColorSelect = (color: string) => {
+    setSelectedColor(color);
+    setStep("design");
+    toast.success(`Selected color: ${color}`);
+  };
+
+  const handleBack = () => {
+    if (step === "product") {
+      setStep("category");
+      setSelectedCategory(null);
+      setProducts([]);
+    } else if (step === "color") {
+      setStep("product");
+      setSelectedColor(null);
+    } else if (step === "design") {
+      setStep("color");
+    }
+  };
 
   const addTShirtBase = (canvas: FabricCanvas, color: string) => {
     const tshirtSvg = `
@@ -186,42 +447,52 @@ export default function Customize() {
   };
 
   const addProductPhotoBase = (canvas: FabricCanvas, url: string) => {
-    FabricImage.fromURL(url, { crossOrigin: "anonymous" }).then((img) => {
-      img.set({ selectable: false, evented: false });
-      // Cover entire canvas area for full width/height
-      const canvasW = 500;
-      const canvasH = 600;
-      const scaleX = canvasW / (img.width || canvasW);
-      const scaleY = canvasH / (img.height || canvasH);
-      const scale = Math.max(scaleX, scaleY);
-      img.scale(scale);
-      const newW = (img.width || 0) * scale;
-      const newH = (img.height || 0) * scale;
-      img.set({ left: (canvasW - newW) / 2, top: (canvasH - newH) / 2 });
-      (img as any).name = "tshirt-base-photo";
-      canvas.add(img);
-      // keep base above background but below custom elements
-      canvas.sendObjectToBack(img);
-      // but ensure bg-photo (if exists) stays at very back
-      const bg = canvas.getObjects().find((o) => (o as any).name === "bg-photo");
-      if (bg) {
-        canvas.sendObjectToBack(bg);
-      }
-      canvas.renderAll();
-    });
+    FabricImage.fromURL(url, { crossOrigin: "anonymous" })
+      .then((img) => {
+        // eslint-disable-next-line no-console
+        console.log("[Customize] Base image loaded successfully");
+        img.set({ selectable: false, evented: false });
+        // Cover entire canvas area for full width/height
+        const canvasW = 500;
+        const canvasH = 600;
+        const scaleX = canvasW / (img.width || canvasW);
+        const scaleY = canvasH / (img.height || canvasH);
+        const scale = Math.max(scaleX, scaleY);
+        img.scale(scale);
+        const newW = (img.width || 0) * scale;
+        const newH = (img.height || 0) * scale;
+        img.set({ left: (canvasW - newW) / 2, top: (canvasH - newH) / 2 });
+        (img as any).name = "tshirt-base-photo";
+        canvas.add(img);
+        // keep base above background but below custom elements
+        canvas.sendObjectToBack(img);
+        // but ensure bg-photo (if exists) stays at very back
+        const bg = canvas.getObjects().find((o) => (o as any).name === "bg-photo");
+        if (bg) {
+          canvas.sendObjectToBack(bg);
+        }
+        canvas.renderAll();
+      })
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error("[Customize] Failed to load base image:", err);
+        toast.error("Failed to load product image");
+      });
   };
 
-  const updateTShirtColor = (canvas: FabricCanvas, color: string) => {
-    const objects = canvas.getObjects();
-    const hasPhotoBase = objects.some((obj) => (obj as any).name === "tshirt-base-photo");
-    if (hasPhotoBase) return; // color not applicable when using product photo base
-    const tshirtBase = objects.find((obj) => (obj as any).name === "tshirt-base");
-    
-    if (tshirtBase) {
-      canvas.remove(tshirtBase);
-    }
-    
-    addTShirtBase(canvas, color);
+  // Pick appropriate base image for the selected side
+  const pickVariantImageForSide = (variant: Product["variants"][number], side: "front" | "back") => {
+    if (!variant?.images?.length) return undefined;
+    // Heuristics:
+    // 1) Prefer URLs containing "back" when side === back and "front" for front
+    // 2) Otherwise, use index 0 for front, index 1 for back if present (fallback to 0)
+    const lower = (s: string) => s.toLowerCase();
+    const byHint = variant.images.find((img) =>
+      side === "back" ? lower(img.url).includes("back") : lower(img.url).includes("front")
+    );
+    if (byHint) return byHint.url;
+    if (side === "front") return variant.images[0]?.url;
+    return variant.images[1]?.url || variant.images[0]?.url;
   };
 
   const handleAddText = () => {
@@ -240,12 +511,30 @@ export default function Customize() {
       fontFamily: selectedFont,
     });
     (text as any).name = "custom-text";
+    (text as any).layerId = `text-${Date.now()}`;
 
     fabricCanvas.add(text);
     fabricCanvas.setActiveObject(text);
     fabricCanvas.renderAll();
 
-    updateCustomizationCost(fabricCanvas);
+    // Add to design layers
+    const layer: DesignLayer = {
+      id: (text as any).layerId,
+      type: "text",
+      data: {
+        content,
+        font: selectedFont,
+        color: textColor,
+        size: fontSize,
+        x: 200,
+        y: 250,
+        scale: 1,
+        rotation: 0,
+      },
+      cost: selectedProduct?.customizationPricing?.perTextLayer || 10,
+    };
+    setDesignLayers([...designLayers, layer]);
+
     toast.success("Text added! Drag to reposition.");
   };
 
@@ -265,6 +554,7 @@ export default function Customize() {
           top: 250,
         });
         (img as any).name = "custom-image";
+        (img as any).layerId = `image-${Date.now()}`;
         
         fabricCanvas.add(img);
         fabricCanvas.setActiveObject(img);
@@ -274,7 +564,21 @@ export default function Customize() {
           applyTransparentBgToActiveImage(true);
         }
 
-        updateCustomizationCost(fabricCanvas);
+        // Add to design layers
+        const layer: DesignLayer = {
+          id: (img as any).layerId,
+          type: "image",
+          data: {
+            url: imgUrl,
+            x: 200,
+            y: 250,
+            scale: 0.3,
+            rotation: 0,
+          },
+          cost: selectedProduct?.customizationPricing?.perImageLayer || 20,
+        };
+        setDesignLayers([...designLayers, layer]);
+
         toast.success("Image uploaded! Drag to reposition.");
       });
     };
@@ -289,11 +593,19 @@ export default function Customize() {
     if (
       activeObject &&
       (activeObject as any).name !== "tshirt-base" &&
-      (activeObject as any).name !== "tshirt-base-photo"
+      (activeObject as any).name !== "tshirt-base-photo" &&
+      (activeObject as any).name !== "bg-photo"
     ) {
+      const layerId = (activeObject as any).layerId;
+      if (layerId) {
+        if (designSide === "front") {
+          setFrontDesignLayers(frontDesignLayers.filter((layer) => layer.id !== layerId));
+        } else {
+          setBackDesignLayers(backDesignLayers.filter((layer) => layer.id !== layerId));
+        }
+      }
       fabricCanvas.remove(activeObject);
       fabricCanvas.renderAll();
-      updateCustomizationCost(fabricCanvas);
       toast.success("Element deleted!");
     }
   };
@@ -314,14 +626,18 @@ export default function Customize() {
     const objects = fabricCanvas.getObjects();
     objects.forEach((obj) => {
       const name = (obj as any).name;
-      if (name !== "tshirt-base" && name !== "tshirt-base-photo") {
+      if (name !== "tshirt-base" && name !== "tshirt-base-photo" && name !== "bg-photo") {
         fabricCanvas.remove(obj);
       }
     });
     
     fabricCanvas.renderAll();
-    setCustomizationCost(0);
-    toast.success("Design reset!");
+    if (designSide === "front") {
+      setFrontDesignLayers([]);
+    } else {
+      setBackDesignLayers([]);
+    }
+    toast.success(`${designSide === "front" ? "Front" : "Back"} design reset!`);
   };
 
   const handleDownload = () => {
@@ -341,35 +657,53 @@ export default function Customize() {
     toast.success("Design downloaded!");
   };
 
-  const handleAddToCart = () => {
-    if (!fabricCanvas) return;
+  const handleAddToCart = async () => {
+    if (!fabricCanvas || !selectedProduct || !selectedColor) {
+      toast.error("Please complete all steps before adding to cart");
+      return;
+    }
     
-    const designData = fabricCanvas.toJSON();
-    localStorage.setItem("cart-design", JSON.stringify(designData));
-    
-    toast.success("Added to cart!");
-  };
-
-  const updateCustomizationCost = (canvas?: FabricCanvas) => {
-    const canvasRefLocal = canvas || fabricCanvas;
-    if (!canvasRefLocal) return;
-
-    const objects = canvasRefLocal.getObjects();
-    const customObjects = objects.filter((obj) => {
-      const name = (obj as any).name;
-      return name !== "tshirt-base" && name !== "tshirt-base-photo" && name !== "bg-photo";
-    });
-
-    // Pricing: Rs 0.02 per pixel of design area (sum of bounding boxes)
-    let totalArea = 0;
-    customObjects.forEach((obj) => {
-      const width = (obj.getScaledWidth && obj.getScaledWidth()) || obj.width || 0;
-      const height = (obj.getScaledHeight && obj.getScaledHeight()) || obj.height || 0;
-      totalArea += Math.max(0, width) * Math.max(0, height);
-    });
-
-    const cost = totalArea * 0.02; // Rs per pixel
-    setCustomizationCost(Number(cost.toFixed(2)));
+    try {
+      // Export current design as JSON and PNG
+      const currentDesignData = fabricCanvas.toJSON();
+      const currentPreviewImage = fabricCanvas.toDataURL({
+        format: "png",
+        quality: 1,
+        multiplier: 2,
+      });
+      
+      // Prepare cart item data with both front and back designs
+      const cartItem = {
+        productId: selectedProduct._id,
+        productName: selectedProduct.name,
+        productSlug: selectedProduct.slug,
+        selectedColor,
+        selectedSize,
+        frontDesign: {
+          designData: currentDesignData,
+          designLayers: frontDesignLayers,
+          previewImage: currentPreviewImage,
+        },
+        backDesign: {
+          designLayers: backDesignLayers,
+          // Note: Back preview would need to be generated separately
+        },
+        basePrice,
+        frontCustomizationCost,
+        backCustomizationCost,
+        customizationCost,
+        totalPrice,
+      };
+      
+      // Store in localStorage (you can send to backend API here)
+      const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
+      existingCart.push(cartItem);
+      localStorage.setItem("cart", JSON.stringify(existingCart));
+      
+      toast.success("Added to cart!");
+    } catch (error) {
+      toast.error("Failed to add to cart");
+    }
   };
 
   const applyTransparentBgToActiveImage = (enabled: boolean) => {
@@ -401,37 +735,218 @@ export default function Customize() {
     fabricCanvas.requestRenderAll();
   };
 
+  // Step indicator component
+  const StepIndicator = () => {
+    const steps = [
+      { id: "category", label: "Category", icon: "📂" },
+      { id: "product", label: "Product", icon: "👕" },
+      { id: "color", label: "Color", icon: "🎨" },
+      { id: "design", label: "Design", icon: "✏️" },
+    ];
+
+    const currentStepIndex = steps.findIndex((s) => s.id === step);
+
+    return (
+      <div className="flex items-center justify-center gap-4 mb-8">
+        {steps.map((s, idx) => (
+          <div key={s.id} className="flex items-center">
+            <div
+              className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all ${
+                idx <= currentStepIndex
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted text-muted-foreground border-border"
+              }`}
+            >
+              <span className="text-xl">{s.icon}</span>
+            </div>
+            {idx < steps.length - 1 && (
+              <div
+                className={`w-16 h-1 mx-2 transition-all ${
+                  idx < currentStepIndex ? "bg-primary" : "bg-border"
+                }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
       <div className="container mx-auto px-4 py-8 flex-1">
-        <h1 className="mb-8 text-3xl font-bold">Design Your Custom T-Shirt</h1>
+        <h1 className="mb-4 text-3xl font-bold text-center">Design Your Custom Product</h1>
+        <StepIndicator />
 
+        <AnimatePresence mode="wait">
+          {/* Step 1: Category Selection */}
+          {step === "category" && (
+            <motion.div
+              key="category"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="max-w-4xl mx-auto"
+            >
+              <Card>
+                <CardContent className="p-8">
+                  <h2 className="text-2xl font-semibold mb-6 text-center">Select a Category</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {CATEGORIES.map((category) => (
+                      <Button
+                        key={category.id}
+                        variant="outline"
+                        className="h-32 flex flex-col gap-2"
+                        onClick={() => handleCategorySelect(category)}
+                        disabled={loading}
+                      >
+                        <span className="text-4xl">{category.icon}</span>
+                        <span className="font-medium">{category.name}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Step 2: Product Selection */}
+          {step === "product" && (
+            <motion.div
+              key="product"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="max-w-6xl mx-auto"
+            >
+              <Card>
+                <CardContent className="p-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-semibold">
+                      {selectedCategory?.name} - Select a Product
+                    </h2>
+                    <Button variant="outline" onClick={handleBack}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back
+                    </Button>
+                  </div>
+                  {loading ? (
+                    <div className="text-center py-12">Loading products...</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {products.map((product) => (
+                        <Card
+                          key={product._id}
+                          className="cursor-pointer hover:shadow-lg transition-shadow"
+                          onClick={() => handleProductSelect(product)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="aspect-square bg-muted rounded-lg mb-4 flex items-center justify-center">
+                              {product.variants[0]?.images[0] ? (
+                                <img
+                                  src={product.variants[0].images[0].url}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover rounded-lg"
+                                />
+                              ) : (
+                                <span className="text-4xl">👕</span>
+                              )}
+                            </div>
+                            <h3 className="font-semibold mb-2">{product.name}</h3>
+                            <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                              {product.description}
+                            </p>
+                            <p className="text-lg font-bold text-primary">
+                              ₹{product.price.toFixed(2)}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Step 3: Color Selection */}
+          {step === "color" && selectedProduct && (
+            <motion.div
+              key="color"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="max-w-4xl mx-auto"
+            >
+              <Card>
+                <CardContent className="p-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-semibold">Select a Color</h2>
+                    <Button variant="outline" onClick={handleBack}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {selectedProduct.variants.map((variant) => (
+                      <Button
+                        key={variant.color}
+                        variant="outline"
+                        className="h-24 flex flex-col gap-2"
+                        onClick={() => handleColorSelect(variant.color)}
+                      >
+                        <div
+                          className="w-16 h-16 rounded-lg border-2 border-border"
+                          style={{ backgroundColor: variant.colorCode }}
+                        />
+                        <span className="font-medium">{variant.color}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Step 4: Design */}
+          {step === "design" && (
+            <motion.div
+              key="design"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0 }}
+            >
         <div className="grid gap-8 lg:grid-cols-[300px_1fr_300px]">
           {/* Left Sidebar - Product Options */}
           <Card className="h-fit">
             <CardContent className="p-6 space-y-6">
               <div>
-                <Label className="mb-3 block text-base font-semibold">T-Shirt Color</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {TSHIRT_COLORS.map((color) => (
-                    <button
-                      key={color.value}
-                      onClick={() => setSelectedColor(color.value)}
-                      className={`h-12 w-12 rounded-lg border-2 transition-all hover:scale-110 ${
-                        selectedColor === color.value
-                          ? "border-primary ring-2 ring-primary ring-offset-2"
-                          : "border-border"
-                      }`}
-                      style={{ backgroundColor: color.value }}
-                      title={color.name}
-                    />
-                  ))}
+                      <Label className="mb-3 block text-base font-semibold">Design Side</Label>
+                      <div className="grid grid-cols-2 gap-2 mb-4">
+                        <Button
+                          variant={designSide === "front" ? "default" : "outline"}
+                          onClick={() => setDesignSide("front")}
+                          className="w-full"
+                        >
+                          Front
+                        </Button>
+                        <Button
+                          variant={designSide === "back" ? "default" : "outline"}
+                          onClick={() => setDesignSide("back")}
+                          className="w-full"
+                        >
+                          Back
+                        </Button>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Front: {frontDesignLayers.length} elements | Back: {backDesignLayers.length} elements
                 </div>
               </div>
 
-              <div>
+                    <div className="border-t pt-4">
                 <Label className="mb-3 block text-base font-semibold">Size</Label>
                 <div className="grid grid-cols-3 gap-2">
                   {SIZES.map((size) => (
@@ -454,8 +969,12 @@ export default function Customize() {
                     <span className="font-medium">₹{basePrice.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Customization:</span>
-                    <span className="font-medium">₹{customizationCost.toFixed(2)}</span>
+                          <span className="text-muted-foreground">Front Design:</span>
+                          <span className="font-medium">₹{frontCustomizationCost.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Back Design:</span>
+                          <span className="font-medium">₹{backCustomizationCost.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2 text-lg font-bold">
                     <span>Total:</span>
@@ -468,8 +987,15 @@ export default function Customize() {
 
           {/* Center - Canvas */}
           <div className="flex flex-col items-center gap-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
+                      <span className="text-sm font-semibold text-primary">
+                        Editing: {designSide === "front" ? "Front" : "Back"} Side
+                      </span>
+                    </div>
+                  </div>
             <div className="rounded-lg border bg-muted/30 p-4 shadow-lg">
-              <canvas ref={canvasRef} className="max-w-full" />
+                    <canvas ref={canvasElRef} className="max-w-full" />
             </div>
 
             <div className="flex flex-wrap gap-2 justify-center">
@@ -631,6 +1157,9 @@ export default function Customize() {
             </CardContent>
           </Card>
         </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <Footer />
