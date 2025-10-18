@@ -23,7 +23,6 @@ All colors MUST be HSL.
     /* Deep blue for trust and secondary actions */
     --secondary: 221 83% 53%;
     --secondary-foreground: 0 0% 100%;
-
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
 

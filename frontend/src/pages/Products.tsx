@@ -27,21 +27,23 @@ export default function Products() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      <div className="container mx-auto px-4 py-8 flex-1">
-        <div className="mb-12 text-center">
-          <h1 className="mb-4 text-4xl font-bold">Our Products</h1>
-          <p className="text-lg text-muted-foreground">
+      <div className="container mx-auto px-4 py-6 sm:py-8 flex-1">
+        <div className="mb-8 sm:mb-12 text-center">
+          <h1 className="mb-4 text-2xl sm:text-3xl md:text-4xl font-bold">Our Products</h1>
+          <p className="text-sm sm:text-base lg:text-lg text-muted-foreground">
             Choose from our wide selection of customizable apparel
           </p>
         </div>
 
         {/* Category Filter */}
-        <div className="mb-8 flex flex-wrap justify-center gap-2">
+        <div className="mb-6 sm:mb-8 flex flex-wrap justify-center gap-2">
           {CATEGORIES.map((category) => (
             <Button
               key={category}
               variant={selectedCategory === category ? "default" : "outline"}
               onClick={() => setSelectedCategory(category)}
+              size="sm"
+              className="text-xs sm:text-sm"
             >
               {category}
             </Button>
@@ -49,7 +51,7 @@ export default function Products() {
         </div>
 
         {/* Products Grid */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProducts.map((product: any) => (
             <Card key={product.id} className="group hover-lift cursor-pointer overflow-hidden">
               <div className="aspect-square overflow-hidden bg-muted">
@@ -59,22 +61,29 @@ export default function Products() {
                   className="h-full w-full object-cover transition-transform group-hover:scale-110"
                 />
               </div>
-              <CardContent className="p-4">
-                <div className="mb-2 text-sm text-muted-foreground">{product.category || 'Product'}</div>
-                <h3 className="mb-2 font-semibold">{product.name}</h3>
-                <p className="mb-2 text-sm text-muted-foreground">
+              <CardContent className="p-3 sm:p-4">
+                <div className="mb-2 text-xs sm:text-sm text-muted-foreground">{product.category || 'Product'}</div>
+                <h3 className="mb-2 font-semibold text-sm sm:text-base">{product.name}</h3>
+                <p className="mb-2 text-xs sm:text-sm text-muted-foreground">
                   {product.sizes?.length || 0} sizes available
                 </p>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-lg font-bold text-primary">
+                <div className="space-y-2 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-2">
+                  <span className="text-base sm:text-lg font-bold text-primary block sm:inline">
                     From ₹{Number(product.price).toFixed(2)}
                   </span>
-                  <Link to="/customize" state={{ productImage: product.images?.[0]?.url || product.image }}>
-                    <Button size="sm">Customize</Button>
-                  </Link>
-                  <Button size="sm" variant="outline" onClick={() => navigate('/checkout', { state: { productId: product._id || product.id } })}>
-                    Buy Now
-                  </Button>
+                  <div className="flex gap-2">
+                    <Link to="/customize" state={{ productImage: product.images?.[0]?.url || product.image }} className="flex-1">
+                      <Button size="sm" className="w-full sm:w-auto text-xs">Customize</Button>
+                    </Link>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1 sm:flex-none text-xs"
+                      onClick={() => navigate('/checkout', { state: { productId: product._id || product.id } })}
+                    >
+                      Buy Now
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
