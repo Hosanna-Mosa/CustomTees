@@ -8,7 +8,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Separator } from '@/components/ui/separator'
 import { Navbar } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
-import { fetchProducts, createOrder } from '@/lib/api'
+import { AddressSelector } from '@/components/AddressSelector'
+import { fetchProducts, createOrder, getMe } from '@/lib/api'
 import { ShoppingBag, CreditCard, Truck, Shield } from 'lucide-react'
 
 export default function Checkout() {
@@ -18,6 +19,8 @@ export default function Checkout() {
   const [product, setProduct] = useState<any>(null)
   const [quantity, setQuantity] = useState(1)
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod')
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
+  const [userAddresses, setUserAddresses] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -29,14 +32,42 @@ export default function Checkout() {
     })
   }, [productId])
 
+  useEffect(() => {
+    // Load user addresses
+    getMe().then((res: any) => {
+      const addresses = res.data?.addresses || []
+      setUserAddresses(addresses)
+      
+      // Auto-select default address if available
+      const defaultAddr = addresses.find((addr: any) => addr.isDefault)
+      if (defaultAddr) {
+        setSelectedAddressId(defaultAddr._id)
+      }
+    }).catch(() => {
+      // User might not be logged in, that's okay
+    })
+  }, [])
+
   const total = useMemo(() => (product ? Number(product.price) * quantity : 0), [product, quantity])
 
   async function placeOrder() {
-    if (!product) return
+    if (!product || !selectedAddressId) return
+    
+    const selectedAddress = userAddresses.find(addr => addr._id === selectedAddressId)
+    if (!selectedAddress) {
+      setErr('Please select a valid shipping address')
+      return
+    }
+    
     setLoading(true)
     setErr(null)
     try {
-      const res = await createOrder({ productId: product._id || product.id, quantity, paymentMethod })
+      const res = await createOrder({ 
+        productId: product._id || product.id, 
+        quantity, 
+        paymentMethod,
+        shippingAddress: selectedAddress
+      })
       const order = (res as any).data || res
       if (paymentMethod === 'razorpay') {
         navigate('/payments', { state: { orderId: order._id, total, product } })
@@ -146,6 +177,12 @@ export default function Checkout() {
                 </CardContent>
               </Card>
 
+              {/* Address Selection */}
+              <AddressSelector 
+                selectedAddressId={selectedAddressId}
+                onAddressSelect={setSelectedAddressId}
+              />
+
               {/* Payment Method */}
               <Card>
                 <CardHeader>
@@ -192,9 +229,17 @@ export default function Checkout() {
                     <p>• 24/7 customer support</p>
                   </div>
                   
+                  {!selectedAddressId && (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-700">
+                        ⚠️ Please select a shipping address to continue
+                      </p>
+                    </div>
+                  )}
+                  
                   <Button 
                     onClick={placeOrder} 
-                    disabled={loading || !product}
+                    disabled={loading || !product || !selectedAddressId}
                     className="w-full h-12 text-lg"
                     size="lg"
                   >
