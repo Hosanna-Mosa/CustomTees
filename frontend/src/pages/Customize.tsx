@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { HexColorPicker } from "react-colorful";
@@ -27,7 +28,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { fetchProducts, fetchProductBySlug } from "@/lib/api";
 
 // Types
-type Step = "category" | "product" | "color" | "design";
+type Step = "category" | "product" | "design";
 
 interface Category {
   id: string;
@@ -83,6 +84,8 @@ const CATEGORIES: Category[] = [
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const FONTS = ["Arial", "Helvetica", "Times New Roman", "Courier New", "Georgia", "Verdana"];
+// Dynamic pricing: cost derived from rendered object area (in pixels)
+const PRICE_PER_PIXEL = 0.02; // ₹ per pixel area
 
 export default function Customize() {
   // Step management
@@ -111,6 +114,8 @@ export default function Customize() {
   const [showBackground, setShowBackground] = useState(false);
   const [transparentBgEnabled, setTransparentBgEnabled] = useState(false);
   const [transparentColor] = useState<string>("#ffffff");
+  const [showColorDropdown, setShowColorDropdown] = useState(false);
+  const colorDropdownRef = useRef<HTMLDivElement>(null);
 
   // Current design layers based on selected side
   const designLayers = designSide === "front" ? frontDesignLayers : backDesignLayers;
@@ -121,10 +126,16 @@ export default function Customize() {
   
   // Pricing
   const basePrice = selectedProduct?.price || 0;
-  const frontCustomizationCost = frontDesignLayers.reduce((sum, layer) => sum + layer.cost, 0);
-  const backCustomizationCost = backDesignLayers.reduce((sum, layer) => sum + layer.cost, 0);
-  const customizationCost = frontCustomizationCost + backCustomizationCost;
-  const totalPrice = basePrice + customizationCost;
+  const [frontCustomizationCost, setFrontCustomizationCost] = useState(0);
+  const [backCustomizationCost, setBackCustomizationCost] = useState(0);
+  const totalPrice = basePrice + frontCustomizationCost + backCustomizationCost;
+
+  // Update total price when base price changes
+  useEffect(() => {
+    // Reset customization costs when base price changes
+    setFrontCustomizationCost(0);
+    setBackCustomizationCost(0);
+  }, [basePrice]);
   // Helper: initialize Fabric canvas
   const setupCanvasInstance = useCallback((el: HTMLCanvasElement) => {
     if (didInitCanvasRef.current || fabricCanvas) return;
@@ -152,32 +163,24 @@ export default function Customize() {
       }
     }
 
-    const updateLayerData = () => {
-      if (!fabricCanvas) return;
-      const objects = fabricCanvas.getObjects();
-      const updatedLayers = designLayers.map((layer) => {
-        const obj = objects.find((o) => (o as any).layerId === layer.id);
-        if (obj) {
-          return {
-            ...layer,
-            data: {
-              ...layer.data,
-              x: obj.left || 0,
-              y: obj.top || 0,
-              scale: (obj.scaleX || 1) * (obj.scaleY || 1),
-              rotation: obj.angle || 0,
-            },
-          };
-        }
-        return layer;
-      });
-      setDesignLayers(updatedLayers);
+    const getObjectArea = (obj: any) => {
+      // Use absolute values to handle negative scaling
+      const scaleX = Math.abs(obj.scaleX || 1);
+      const scaleY = Math.abs(obj.scaleY || 1);
+      
+      // For text objects, use the actual bounding box
+      if (obj.type === 'text' || obj.type === 'textbox') {
+        const bbox = obj.getBoundingRect();
+        return bbox.width * bbox.height;
+      }
+      
+      // For other objects, use width/height with absolute scaling
+      const width = (obj.width || 0) * scaleX;
+      const height = (obj.height || 0) * scaleY;
+      return width * height;
     };
-    canvas.on("object:modified", updateLayerData);
-    canvas.on("object:scaling", updateLayerData);
-    canvas.on("object:moving", updateLayerData);
-    canvas.on("object:rotating", updateLayerData);
-  }, [designLayers, fabricCanvas, selectedColor, selectedProduct, setDesignLayers, showBackground, step]);
+
+  }, [fabricCanvas, selectedColor, selectedProduct, showBackground, step]);
 
   // Canvas element ref
   const canvasElRef = useCallback((el: HTMLCanvasElement | null) => {
@@ -356,6 +359,103 @@ export default function Customize() {
     }
   }, [fontSize, textColor, selectedFont, fabricCanvas]);
 
+  // Dynamic pricing updates on canvas object changes
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    const calculateTotalPrice = () => {
+      const objects = fabricCanvas.getObjects();
+      let totalArea = 0;
+
+      // Get current layers for the active side
+      const currentLayers = designSide === "front" ? frontDesignLayers : backDesignLayers;
+
+      objects.forEach((obj) => {
+        // Skip background and base images
+        if (!obj.selectable || (obj as any).name === "tshirt-base" || (obj as any).name === "tshirt-base-photo" || (obj as any).name === "bg-photo") {
+          return;
+        }
+
+        // Only calculate area for objects that belong to the current side
+        const layerId = (obj as any).layerId;
+        const belongsToCurrentSide = currentLayers.some(layer => layer.id === layerId);
+        
+        if (!belongsToCurrentSide) {
+          return;
+        }
+
+        // Calculate area using absolute scaling
+        const scaleX = Math.abs(obj.scaleX || 1);
+        const scaleY = Math.abs(obj.scaleY || 1);
+        
+        // For text objects, use the actual bounding box
+        if (obj.type === 'text' || obj.type === 'textbox') {
+          const bbox = obj.getBoundingRect();
+          totalArea += bbox.width * bbox.height;
+        } else {
+          // For other objects, use width/height with absolute scaling
+          const width = (obj.width || 0) * scaleX;
+          const height = (obj.height || 0) * scaleY;
+          totalArea += width * height;
+        }
+      });
+
+      const customizationCost = totalArea * PRICE_PER_PIXEL;
+      
+      // Update the appropriate side's customization cost
+      if (designSide === "front") {
+        setFrontCustomizationCost(customizationCost);
+        console.log(`[Pricing] Front side - Total area: ${totalArea.toFixed(2)}px, customization cost: ₹${customizationCost.toFixed(2)}`);
+      } else {
+        setBackCustomizationCost(customizationCost);
+        console.log(`[Pricing] Back side - Total area: ${totalArea.toFixed(2)}px, customization cost: ₹${customizationCost.toFixed(2)}`);
+      }
+    };
+
+    // Debounced update to prevent too many rapid calculations
+    let updateTimeout: NodeJS.Timeout;
+    const debouncedUpdate = () => {
+      clearTimeout(updateTimeout);
+      updateTimeout = setTimeout(calculateTotalPrice, 100);
+    };
+
+    // Add event listeners
+    fabricCanvas.on("object:modified", debouncedUpdate);
+    fabricCanvas.on("object:scaling", debouncedUpdate);
+    fabricCanvas.on("object:moving", debouncedUpdate);
+    fabricCanvas.on("object:rotating", debouncedUpdate);
+    fabricCanvas.on("object:added", debouncedUpdate);
+    fabricCanvas.on("object:removed", debouncedUpdate);
+
+    // Cleanup
+    return () => {
+      clearTimeout(updateTimeout);
+      fabricCanvas.off("object:modified", debouncedUpdate);
+      fabricCanvas.off("object:scaling", debouncedUpdate);
+      fabricCanvas.off("object:moving", debouncedUpdate);
+      fabricCanvas.off("object:rotating", debouncedUpdate);
+      fabricCanvas.off("object:added", debouncedUpdate);
+      fabricCanvas.off("object:removed", debouncedUpdate);
+    };
+  }, [fabricCanvas, basePrice, designSide, frontDesignLayers, backDesignLayers]);
+
+  // Close color dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (colorDropdownRef.current && !colorDropdownRef.current.contains(event.target as Node)) {
+        setShowColorDropdown(false);
+      }
+    };
+
+    if (showColorDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showColorDropdown]);
+
   // Step handlers
   const handleCategorySelect = async (category: Category) => {
     setSelectedCategory(category);
@@ -375,7 +475,11 @@ export default function Customize() {
 
   const handleProductSelect = async (product: Product) => {
     setSelectedProduct(product);
-    setStep("color");
+    // Automatically select the first color variant
+    if (product.variants && product.variants.length > 0) {
+      setSelectedColor(product.variants[0].color);
+    }
+    setStep("design");
     toast.success(`Selected ${product.name}`);
   };
 
@@ -390,11 +494,9 @@ export default function Customize() {
       setStep("category");
       setSelectedCategory(null);
       setProducts([]);
-    } else if (step === "color") {
+    } else if (step === "design") {
       setStep("product");
       setSelectedColor(null);
-    } else if (step === "design") {
-      setStep("color");
     }
   };
 
@@ -531,6 +633,7 @@ export default function Customize() {
         scale: 1,
         rotation: 0,
       },
+      // Fixed cost for layer tracking (not used for pricing anymore)
       cost: selectedProduct?.customizationPricing?.perTextLayer || 10,
     };
     setDesignLayers([...designLayers, layer]);
@@ -691,7 +794,6 @@ export default function Customize() {
         basePrice,
         frontCustomizationCost,
         backCustomizationCost,
-        customizationCost,
         totalPrice,
       };
       
@@ -740,7 +842,6 @@ export default function Customize() {
     const steps = [
       { id: "category", label: "Category", icon: "📂" },
       { id: "product", label: "Product", icon: "👕" },
-      { id: "color", label: "Color", icon: "🎨" },
       { id: "design", label: "Design", icon: "✏️" },
     ];
 
@@ -777,8 +878,6 @@ export default function Customize() {
       <Navbar />
 
       <div className="container mx-auto px-4 py-8 flex-1">
-        <h1 className="mb-4 text-3xl font-bold text-center">Design Your Custom Product</h1>
-        <StepIndicator />
 
         <AnimatePresence mode="wait">
           {/* Step 1: Category Selection */}
@@ -871,44 +970,6 @@ export default function Customize() {
             </motion.div>
           )}
 
-          {/* Step 3: Color Selection */}
-          {step === "color" && selectedProduct && (
-            <motion.div
-              key="color"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="max-w-4xl mx-auto"
-            >
-              <Card>
-                <CardContent className="p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-semibold">Select a Color</h2>
-                    <Button variant="outline" onClick={handleBack}>
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {selectedProduct.variants.map((variant) => (
-                      <Button
-                        key={variant.color}
-                        variant="outline"
-                        className="h-24 flex flex-col gap-2"
-                        onClick={() => handleColorSelect(variant.color)}
-                      >
-                        <div
-                          className="w-16 h-16 rounded-lg border-2 border-border"
-                          style={{ backgroundColor: variant.colorCode }}
-                        />
-                        <span className="font-medium">{variant.color}</span>
-                      </Button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
 
           {/* Step 4: Design */}
           {step === "design" && (
@@ -919,7 +980,7 @@ export default function Customize() {
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0 }}
             >
-        <div className="grid gap-8 lg:grid-cols-[300px_1fr_300px]">
+        <div className="grid gap-8 lg:grid-cols-[400px_1fr_300px]">
           {/* Left Sidebar - Product Options */}
           <Card className="h-fit">
             <CardContent className="p-6 space-y-6">
@@ -963,19 +1024,77 @@ export default function Customize() {
               </div>
 
               <div className="border-t pt-4">
-                <div className="space-y-2">
+                <Label className="mb-3 block text-base font-semibold">Product Color</Label>
+                {selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0 && (
+                  <div className="space-y-3">
+                    {/* Color Dropdown Trigger */}
+                    <div className="relative" ref={colorDropdownRef}>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowColorDropdown(!showColorDropdown)}
+                        className="w-full h-12 flex items-center justify-between p-3 rounded-lg border bg-primary/10 border-primary/20 hover:bg-primary/20"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-8 h-8 rounded-full border-2 border-border"
+                            style={{ backgroundColor: selectedProduct.variants.find(v => v.color === selectedColor)?.colorCode || '#ffffff' }}
+                          />
+                          <span className="font-medium">{selectedColor}</span>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${showColorDropdown ? 'rotate-180' : ''}`} />
+                      </Button>
+
+                      {/* Color Dropdown Content */}
+                      {showColorDropdown && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+                          <div className="p-4">
+                            <div className="grid grid-cols-10 gap-2">
+                              {selectedProduct.variants.map((variant) => (
+                                <button
+                                  key={variant.color}
+                                  onClick={() => {
+                                    setSelectedColor(variant.color);
+                                    setShowColorDropdown(false);
+                                  }}
+                                  className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
+                                    selectedColor === variant.color 
+                                      ? 'border-primary ring-2 ring-primary/20' 
+                                      : 'border-border hover:border-primary/50'
+                                  }`}
+                                  style={{ backgroundColor: variant.colorCode }}
+                                  title={variant.color}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Base Price:</span>
                     <span className="font-medium">₹{basePrice.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Front Design:</span>
-                          <span className="font-medium">₹{frontCustomizationCost.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Back Design:</span>
-                          <span className="font-medium">₹{backCustomizationCost.toFixed(2)}</span>
-                  </div>
+                  
+                  {frontCustomizationCost > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Front Design:</span>
+                      <span className="font-medium">₹{frontCustomizationCost.toFixed(2)}</span>
+                    </div>
+                  )}
+                  
+                  {backCustomizationCost > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Back Design:</span>
+                      <span className="font-medium">₹{backCustomizationCost.toFixed(2)}</span>
+                    </div>
+                  )}
+                  
                   <div className="flex justify-between border-t pt-2 text-lg font-bold">
                     <span>Total:</span>
                     <span className="text-primary">₹{totalPrice.toFixed(2)}</span>
@@ -987,13 +1106,6 @@ export default function Customize() {
 
           {/* Center - Canvas */}
           <div className="flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/20">
-                      <span className="text-sm font-semibold text-primary">
-                        Editing: {designSide === "front" ? "Front" : "Back"} Side
-                      </span>
-                    </div>
-                  </div>
             <div className="rounded-lg border bg-muted/30 p-4 shadow-lg">
                     <canvas ref={canvasElRef} className="max-w-full" />
             </div>
