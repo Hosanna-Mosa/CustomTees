@@ -17,10 +17,9 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* CustomInk-inspired orange brand color */
-    --primary: 16 100% 50%;
+    /* Black brand color */
+    --primary: 0 0% 0%;
     --primary-foreground: 0 0% 100%;
-    
     /* Deep blue for trust and secondary actions */
     --secondary: 221 83% 53%;
     --secondary-foreground: 0 0% 100%;
@@ -37,19 +36,19 @@ All colors MUST be HSL.
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 16 100% 50%;
+    --ring: 0 0% 0%;
 
     --radius: 0.5rem;
     
     /* Custom gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(16 100% 50%), hsl(10 100% 45%));
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 0%), hsl(0 0% 20%));
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 40% 98%));
     
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    --shadow-primary: 0 10px 25px -5px rgba(255, 69, 0, 0.3);
+    --shadow-primary: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
     
     /* Transitions */
     --transition-base: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -82,7 +81,7 @@ All colors MUST be HSL.
     --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 16 100% 50%;
+    --primary: 0 0% 0%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 221 83% 53%;
@@ -99,9 +98,9 @@ All colors MUST be HSL.
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 16 100% 50%;
+    --ring: 0 0% 0%;
     
-    --shadow-primary: 0 10px 25px -5px rgba(255, 69, 0, 0.4);
+    --shadow-primary: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
