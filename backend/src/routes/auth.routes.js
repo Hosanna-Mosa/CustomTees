@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { signup, login, getProfile, updateProfile, addAddress, updateAddress, deleteAddress } from '../controllers/auth.controller.js';
+import { signup, login, getProfile, updateProfile, addAddress, updateAddress, deleteAddress, forgotPassword, resetPassword } from '../controllers/auth.controller.js';
 import { protect } from '../middlewares/auth.middleware.js';
 
 const router = Router();
@@ -15,6 +15,17 @@ router.post('/login', [
   body('email').isEmail(),
   body('password').notEmpty(),
 ], login);
+
+// Forgot password routes
+router.post('/forgot-password', [
+  body('email').isEmail(),
+], forgotPassword);
+
+router.post('/reset-password', [
+  body('email').isEmail(),
+  body('code').isLength({ min: 6, max: 6 }),
+  body('newPassword').isLength({ min: 6 }),
+], resetPassword);
 
 // Profile
 router.get('/me', protect, getProfile);
