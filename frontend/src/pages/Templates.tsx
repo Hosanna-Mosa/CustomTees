@@ -162,18 +162,18 @@ export default function Templates() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-8 flex-1">
+      <div className="container mx-auto px-4 py-6 sm:py-8 flex-1">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Design Templates</h1>
-            <p className="text-muted-foreground">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Design Templates</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
               Choose from our collection of professionally designed templates or create your own
             </p>
           </div>
 
           {/* Search and Filter */}
-          <div className="mb-8 space-y-4">
+          <div className="mb-6 sm:mb-8 space-y-4">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -181,7 +181,7 @@ export default function Templates() {
                   placeholder="Search templates..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-sm sm:text-base"
                 />
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -191,9 +191,9 @@ export default function Templates() {
                     variant={selectedCategory === category ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSelectedCategory(category)}
-                    className="capitalize"
+                    className="capitalize text-xs sm:text-sm"
                   >
-                    <Filter className="h-4 w-4 mr-1" />
+                    <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                     {category}
                   </Button>
                 ))}
@@ -202,29 +202,29 @@ export default function Templates() {
           </div>
 
           {/* Results Count */}
-          <div className="mb-6">
-            <p className="text-sm text-muted-foreground">
+          <div className="mb-4 sm:mb-6">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Showing {filteredTemplates.length} of {templates.length} templates
             </p>
           </div>
 
           {/* Templates Grid */}
           {filteredTemplates.length === 0 ? (
-            <div className="text-center py-12">
-              <Palette className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No templates found</h3>
-              <p className="text-muted-foreground mb-4">
+            <div className="text-center py-8 sm:py-12">
+              <Palette className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-base sm:text-lg font-semibold mb-2">No templates found</h3>
+              <p className="text-sm sm:text-base text-muted-foreground mb-4">
                 Try adjusting your search or filter criteria
               </p>
               <Button onClick={() => {
                 setSearchTerm('');
                 setSelectedCategory('all');
-              }}>
+              }} size="sm">
                 Clear Filters
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {filteredTemplates.map((template) => (
                 <Card key={template.id} className="group hover:shadow-lg transition-shadow">
                   <CardHeader className="p-0">
@@ -241,10 +241,10 @@ export default function Templates() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-4">
+                  <CardContent className="p-3 sm:p-4">
                     <div className="mb-2">
-                      <h3 className="font-semibold text-lg mb-1">{template.name}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
+                      <h3 className="font-semibold text-sm sm:text-base mb-1">{template.name}</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                         {template.description}
                       </p>
                     </div>
@@ -253,12 +253,12 @@ export default function Templates() {
                       <div className="flex items-center gap-1">
                         {renderStars(template.rating)}
                       </div>
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-xs sm:text-sm text-muted-foreground">
                         ({template.rating})
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap gap-1 mb-4">
+                    <div className="flex flex-wrap gap-1 mb-3 sm:mb-4">
                       {template.tags.slice(0, 3).map((tag) => (
                         <Badge key={tag} variant="outline" className="text-xs">
                           {tag}
@@ -271,12 +271,12 @@ export default function Templates() {
                       )}
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button className="flex-1" size="sm">
-                        <Shirt className="h-4 w-4 mr-1" />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button className="flex-1 text-xs sm:text-sm" size="sm">
+                        <Shirt className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                         Use Template
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" className="text-xs sm:text-sm">
                         Preview
                       </Button>
                     </div>
@@ -287,16 +287,16 @@ export default function Templates() {
           )}
 
           {/* Custom Design CTA */}
-          <div className="mt-12">
+          <div className="mt-8 sm:mt-12">
             <Card className="bg-gradient-to-r from-primary/10 to-secondary/10 border-primary/20">
-              <CardContent className="p-8 text-center">
-                <Palette className="h-12 w-12 mx-auto text-primary mb-4" />
-                <h2 className="text-2xl font-bold mb-2">Don't see what you're looking for?</h2>
-                <p className="text-muted-foreground mb-6">
+              <CardContent className="p-6 sm:p-8 text-center">
+                <Palette className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-primary mb-4" />
+                <h2 className="text-xl sm:text-2xl font-bold mb-2">Don't see what you're looking for?</h2>
+                <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
                   Create your own custom design with our easy-to-use design tool
                 </p>
-                <Button size="lg" className="bg-primary hover:bg-primary/90">
-                  <Palette className="h-5 w-5 mr-2" />
+                <Button size="lg" className="bg-primary hover:bg-primary/90 text-sm sm:text-base">
+                  <Palette className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                   Start Custom Design
                 </Button>
               </CardContent>

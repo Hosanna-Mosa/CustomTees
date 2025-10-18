@@ -5,9 +5,11 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { SearchModal } from "@/components/SearchModal";
 
 export const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
   const { isAuthenticated, logout } = useAuth();
   
@@ -26,12 +28,14 @@ export const Navbar = () => {
       <div className="border-b bg-muted/30">
         <div className="container mx-auto flex h-10 items-center justify-between px-4 text-sm">
           <div className="flex items-center gap-4">
-            <span className="text-muted-foreground">Custom T-shirts & Promotional Products</span>
+            <span className="text-muted-foreground hidden sm:inline">Custom T-shirts & Promotional Products</span>
+            <span className="text-muted-foreground sm:hidden">Custom T-shirts</span>
           </div>
           <div className="flex items-center gap-4">
             <button className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
               <Phone className="h-4 w-4" />
               <span className="hidden sm:inline">855-271-2660</span>
+              <span className="sm:hidden text-xs">Call</span>
             </button>
           </div>
         </div>
@@ -39,13 +43,13 @@ export const Navbar = () => {
 
       {/* Main nav */}
       <div className="container mx-auto">
-        <div className="flex h-16 items-center justify-between px-4">
+        <div className="flex h-16 items-center justify-between px-2 sm:px-2">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <span className="text-xl font-bold text-primary-foreground">T</span>
+          <Link to="/" className="flex items-center gap-1 sm:gap-2 transition-opacity hover:opacity-80">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-primary">
+              <span className="text-lg sm:text-xl font-bold text-primary-foreground">T</span>
             </div>
-            <span className="text-xl font-bold">
+            <span className="text-lg sm:text-xl font-bold">
               <span className="text-primary">Custom</span>Tees
             </span>
           </Link>
@@ -69,24 +73,29 @@ export const Navbar = () => {
           </div>
 
           {/* Right actions */}
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="hidden sm:flex">
-              <Search className="h-5 w-5" />
+          <div className="flex items-center gap-2 sm:gap-2">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="hidden sm:flex"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
             {!isAuthenticated ? (
               <div className="hidden sm:flex items-center gap-2">
                 <Link to="/login">
-                  <Button variant="ghost" className={cn(isActive('/login') && 'bg-primary/10 text-primary')}>Login</Button>
+                  <Button variant="ghost" size="sm" className={cn(isActive('/login') && 'bg-primary/10 text-primary')}>Login</Button>
                 </Link>
                 <Link to="/signup">
-                  <Button className="">Sign up</Button>
+                  <Button size="sm">Sign up</Button>
                 </Link>
               </div>
             ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <User className="h-5 w-5" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10 ">
+                    <User className="h-4 w-4 sm:h-5 sm:w-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -101,9 +110,9 @@ export const Navbar = () => {
               </DropdownMenu>
             )}
             <Link to="/cart">
-              <Button variant="ghost" size="icon" className="relative">
-                <ShoppingCart className="h-5 w-5" />
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+              <Button variant="ghost" size="icon" className="relative h-8 w-8 sm:h-10 sm:w-10  -mr-1 sm:mr-0">
+                <ShoppingCart className="h-4 w-4 sm:h-5 gap-2 sm:w-5" />
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                   0
                 </span>
               </Button>
@@ -113,13 +122,13 @@ export const Navbar = () => {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              className="md:hidden h-8 w-8"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               ) : (
-                <Menu className="h-5 w-5" />
+                <Menu className="h-4 w-4" />
               )}
             </Button>
           </div>
@@ -144,6 +153,16 @@ export const Navbar = () => {
                   {link.name}
                 </Link>
               ))}
+              {/* Mobile Search */}
+              <Button 
+                variant="outline" 
+                onClick={() => { setMobileMenuOpen(false); setSearchOpen(true); }}
+                className="w-full justify-start"
+              >
+                <Search className="h-4 w-4 mr-2" />
+                Search Products
+              </Button>
+              
               {!isAuthenticated ? (
                 <div className="flex flex-col gap-2">
                   <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="rounded-md px-4 py-3 text-sm font-medium hover:bg-muted">
@@ -163,6 +182,9 @@ export const Navbar = () => {
           </div>
         )}
       </div>
+      
+      {/* Search Modal */}
+      <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     </nav>
   );
 };

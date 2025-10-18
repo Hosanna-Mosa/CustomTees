@@ -1,6 +1,6 @@
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:5000/api'
+const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8000/api'
 
 function getAuthToken(): string | null {
   return localStorage.getItem('admin_auth_token')

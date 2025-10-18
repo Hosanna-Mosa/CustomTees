@@ -103,11 +103,11 @@ export default function Checkout() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-8 flex-1">
+      <div className="container mx-auto px-4 py-6 sm:py-8 flex-1">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Checkout</h1>
-            <p className="text-muted-foreground">Complete your order securely</p>
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Checkout</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Complete your order securely</p>
           </div>
 
           {err && (
@@ -118,9 +118,9 @@ export default function Checkout() {
             </Card>
           )}
 
-          <div className="grid gap-8 lg:grid-cols-2">
+          <div className="grid gap-6 lg:gap-8 lg:grid-cols-2">
             {/* Order Summary */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -130,28 +130,28 @@ export default function Checkout() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {product && (
-                    <div className="flex items-center gap-4 p-4 border rounded-lg">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg">
                       <img 
                         src={product.images?.[0]?.url || product.image} 
                         alt={product.name} 
-                        className="w-20 h-20 object-cover rounded-lg" 
+                        className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg flex-shrink-0" 
                       />
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{product.name}</h3>
-                        <p className="text-sm text-muted-foreground">{product.description}</p>
-                        <div className="flex items-center gap-4 mt-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm sm:text-base">{product.name}</h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{product.description}</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
                           <div className="flex items-center gap-2">
-                            <Label htmlFor="quantity">Qty:</Label>
+                            <Label htmlFor="quantity" className="text-xs sm:text-sm">Qty:</Label>
                             <Input
                               id="quantity"
                               type="number"
                               min={1}
                               value={quantity}
                               onChange={(e) => setQuantity(Number(e.target.value) || 1)}
-                              className="w-20"
+                              className="w-16 sm:w-20 h-8 text-xs sm:text-sm"
                             />
                           </div>
-                          <span className="font-semibold text-primary">₹{Number(product.price).toFixed(2)}</span>
+                          <span className="font-semibold text-primary text-sm sm:text-base">₹{Number(product.price).toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
@@ -160,16 +160,16 @@ export default function Checkout() {
                   <Separator />
                   
                   <div className="space-y-2">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-sm sm:text-base">
                       <span>Subtotal</span>
                       <span>₹{Number(total).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-sm sm:text-base">
                       <span>Shipping</span>
                       <span className="text-green-600">Free</span>
                     </div>
                     <Separator />
-                    <div className="flex justify-between text-lg font-semibold">
+                    <div className="flex justify-between text-base sm:text-lg font-semibold">
                       <span>Total</span>
                       <span>₹{Number(total).toFixed(2)}</span>
                     </div>
@@ -213,7 +213,7 @@ export default function Checkout() {
             </div>
 
             {/* Order Actions */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -222,7 +222,7 @@ export default function Checkout() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
                     <p>• Your payment information is secure and encrypted</p>
                     <p>• Free shipping on all orders</p>
                     <p>• 30-day return policy</p>
@@ -231,7 +231,7 @@ export default function Checkout() {
                   
                   {!selectedAddressId && (
                     <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <p className="text-sm text-yellow-700">
+                      <p className="text-xs sm:text-sm text-yellow-700">
                         ⚠️ Please select a shipping address to continue
                       </p>
                     </div>
@@ -240,7 +240,7 @@ export default function Checkout() {
                   <Button 
                     onClick={placeOrder} 
                     disabled={loading || !product || !selectedAddressId}
-                    className="w-full h-12 text-lg"
+                    className="w-full h-10 sm:h-12 text-sm sm:text-lg"
                     size="lg"
                   >
                     {loading ? 'Placing Order...' : 'Place Order'}
@@ -249,7 +249,7 @@ export default function Checkout() {
                   <Button 
                     variant="outline" 
                     onClick={() => navigate('/products')}
-                    className="w-full"
+                    className="w-full h-10 sm:h-12 text-sm sm:text-base"
                   >
                     Continue Shopping
                   </Button>
