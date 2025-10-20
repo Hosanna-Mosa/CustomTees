@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { signup, login, getProfile, updateProfile, addAddress, updateAddress, deleteAddress, forgotPassword, resetPassword } from '../controllers/auth.controller.js';
+import { signup, login, getProfile, updateProfile, addAddress, updateAddress, deleteAddress, forgotPassword, resetPassword, saveDesign, listDesigns, getDesignById } from '../controllers/auth.controller.js';
 import { protect } from '../middlewares/auth.middleware.js';
 
 const router = Router();
@@ -34,6 +34,11 @@ router.put('/me', protect, updateProfile);
 router.post('/me/addresses', protect, addAddress);
 router.put('/me/addresses/:id', protect, updateAddress);
 router.delete('/me/addresses/:id', protect, deleteAddress);
+
+// Designs
+router.get('/me/designs', protect, listDesigns);
+router.post('/me/designs', protect, saveDesign);
+router.get('/me/designs/:id', protect, getDesignById);
 
 export default router;
 

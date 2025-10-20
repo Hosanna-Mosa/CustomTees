@@ -20,6 +20,7 @@ export const Navbar = () => {
     { name: "Design Lab", path: "/customize" },
     { name: "Products", path: "/products" },
     { name: "Templates", path: "/templates" },
+    { name: "My Designs", path: "/my-designs" },
   ];
 
   return (
