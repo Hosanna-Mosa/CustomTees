@@ -1,5 +1,6 @@
 import { validationResult } from 'express-validator';
 import User from '../models/User.js';
+import Design from '../models/Design.js';
 import { hashPassword, comparePassword, signToken } from '../services/auth.service.js';
 import { generateVerificationCode, sendVerificationCode, sendPasswordResetSuccess } from '../services/email.service.js';
 
@@ -44,6 +45,51 @@ export const updateProfile = async (req, res) => {
   });
   await req.user.save();
   res.json({ success: true, data: req.user });
+};
+
+// Save or update a design in the authenticated user's profile
+export const saveDesign = async (req, res) => {
+  try {
+    const body = req.body || {};
+    let design;
+    if (body._id) {
+      design = await Design.findOneAndUpdate(
+        { _id: body._id, user: req.user._id },
+        { ...body },
+        { new: true }
+      );
+      if (!design) return res.status(404).json({ success: false, message: 'Design not found' });
+    } else {
+      design = await Design.create({ ...body, user: req.user._id });
+      // store only id reference in user
+      req.user.designs.push(design._id);
+      await req.user.save();
+    }
+    res.status(201).json({ success: true, data: design });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to save design' });
+  }
+};
+
+// List designs for authenticated user
+export const listDesigns = async (req, res) => {
+  try {
+    const designs = await Design.find({ user: req.user._id }).sort({ updatedAt: -1 });
+    res.json({ success: true, data: designs });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to fetch designs' });
+  }
+};
+
+export const getDesignById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const design = await Design.findOne({ _id: id, user: req.user._id });
+    if (!design) return res.status(404).json({ success: false, message: 'Not found' });
+    res.json({ success: true, data: design });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to fetch design' });
+  }
 };
 
 export const addAddress = async (req, res) => {

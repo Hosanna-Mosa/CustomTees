@@ -25,8 +25,9 @@ app.use(cors({
     ],
     credentials: true,
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increase body size limits to allow base64 preview images
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 
 // API

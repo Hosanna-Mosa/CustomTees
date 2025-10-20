@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
     ],
     resetPasswordCode: { type: String },
     resetPasswordExpires: { type: Date },
-    
+    designs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Design' }],
   },
   { timestamps: true }
 );

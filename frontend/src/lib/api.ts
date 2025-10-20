@@ -56,6 +56,17 @@ export const addAddress = async (addr: any) => request('/auth/me/addresses', { m
 export const updateAddress = async (id: string, addr: any) => request(`/auth/me/addresses/${id}`, { method: 'PUT', body: addr });
 export const deleteAddress = async (id: string) => request(`/auth/me/addresses/${id}`, { method: 'DELETE' });
 
+// Designs
+export const saveMyDesign = async (design: any) => request('/auth/me/designs', { method: 'POST', body: design });
+export const getMyDesigns = async () => {
+  const res = await request('/auth/me/designs');
+  return (res as any).data;
+};
+export const getMyDesignById = async (id: string) => {
+  const res = await request(`/auth/me/designs/${id}`);
+  return (res as any).data;
+};
+
 export const adminAddProduct = async (form: FormData) => {
   return request('/products', { method: 'POST', body: form, isForm: true });
 };

@@ -25,7 +25,7 @@ import {
 import { toast } from "sonner";
 import { HexColorPicker } from "react-colorful";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchProducts, fetchProductBySlug } from "@/lib/api";
+import { fetchProducts, fetchProductBySlug, saveMyDesign, getMyDesignById } from "@/lib/api";
 
 // Types
 type Step = "category" | "product" | "design";
@@ -88,6 +88,7 @@ const FONTS = ["Arial", "Helvetica", "Times New Roman", "Courier New", "Georgia"
 const PRICE_PER_PIXEL = 0.02; // ₹ per pixel area
 
 export default function Customize() {
+  const location = useLocation() as any;
   // Step management
   const [step, setStep] = useState<Step>("category");
   
@@ -116,6 +117,31 @@ export default function Customize() {
   const [transparentColor] = useState<string>("#ffffff");
   const [showColorDropdown, setShowColorDropdown] = useState(false);
   const colorDropdownRef = useRef<HTMLDivElement>(null);
+  // Load design by id from navigation state; also fetch product so images load
+  useEffect(() => {
+    const id = (location as any)?.state?.loadDesignId as string | undefined;
+    if (!id) return;
+    (async () => {
+      try {
+        const d = await getMyDesignById(id);
+        if (!d) return;
+        setSelectedSize(d.selectedSize || "M");
+        setSelectedColor(d.selectedColor || null);
+        if (d.productSlug) {
+          try {
+            const prod = await fetchProductBySlug(d.productSlug);
+            setSelectedProduct(prod);
+          } catch {}
+        }
+        if (d.frontDesign?.designLayers) setFrontDesignLayers(d.frontDesign.designLayers);
+        if (d.backDesign?.designLayers) setBackDesignLayers(d.backDesign.designLayers);
+        setStep("design");
+        toast.success("Loaded saved design");
+      } catch (e) {
+        toast.error("Failed to load saved design");
+      }
+    })();
+  }, [location]);
 
   // Current design layers based on selected side
   const designLayers = designSide === "front" ? frontDesignLayers : backDesignLayers;
@@ -808,6 +834,64 @@ export default function Customize() {
     }
   };
 
+  const handleSaveDesign = async () => {
+    if (!fabricCanvas || !selectedProduct || !selectedColor) {
+      toast.error("Please complete all steps before saving");
+      return;
+    }
+    try {
+      // Sync current canvas object positions/styles back into layer state for accuracy
+      const syncLayersFromCanvas = (layers: DesignLayer[]): DesignLayer[] => {
+        if (!fabricCanvas) return layers;
+        const objects = fabricCanvas.getObjects();
+        return layers.map((layer) => {
+          const obj = objects.find((o: any) => (o as any).layerId === layer.id) as any;
+          if (!obj) return layer;
+          const next = { ...layer } as DesignLayer;
+          next.data = {
+            ...next.data,
+            x: obj.left || 0,
+            y: obj.top || 0,
+            rotation: obj.angle || 0,
+            // prefer scaleX for uniform scaling; Fabric uses separate X/Y
+            scale: typeof obj.scaleX === 'number' ? obj.scaleX : (next.data.scale || 1),
+            size: obj.fontSize || next.data.size,
+            color: obj.fill || next.data.color,
+            font: obj.fontFamily || next.data.font,
+          } as any;
+          return next;
+        });
+      };
+
+      const updatedFrontLayers = designSide === 'front' ? syncLayersFromCanvas(frontDesignLayers) : frontDesignLayers;
+      const updatedBackLayers = designSide === 'back' ? syncLayersFromCanvas(backDesignLayers) : backDesignLayers;
+
+      const currentDesignData = fabricCanvas.toJSON();
+      const currentPreviewImage = fabricCanvas.toDataURL({ format: "png", quality: 1, multiplier: 2 });
+      const payload = {
+        name: `${selectedProduct.name} - ${selectedColor} (${selectedSize})`,
+        productId: selectedProduct._id,
+        productName: selectedProduct.name,
+        productSlug: selectedProduct.slug,
+        selectedColor,
+        selectedSize,
+        frontDesign: {
+          designData: currentDesignData,
+          designLayers: updatedFrontLayers,
+          previewImage: currentPreviewImage,
+        },
+        backDesign: {
+          designLayers: updatedBackLayers,
+        },
+        totalPrice,
+      };
+      await saveMyDesign(payload);
+      toast.success("Design saved to your account");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save design");
+    }
+  };
+
   const applyTransparentBgToActiveImage = (enabled: boolean) => {
     if (!fabricCanvas) return;
     const active = fabricCanvas.getActiveObject() as any;
@@ -1125,6 +1209,9 @@ export default function Customize() {
               <Button variant="outline" size="sm" onClick={handleDownload}>
                 <Download className="mr-2 h-4 w-4" />
                 Download
+              </Button>
+              <Button size="sm" onClick={handleSaveDesign}>
+                Save
               </Button>
             </div>
           </div>
