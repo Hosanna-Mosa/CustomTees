@@ -28,6 +28,31 @@ const userSchema = new mongoose.Schema(
     resetPasswordCode: { type: String },
     resetPasswordExpires: { type: Date },
     designs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Design' }],
+    cart: [
+      {
+        productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+        productName: { type: String, required: true },
+        productSlug: { type: String, required: true },
+        selectedColor: { type: String, required: true },
+        selectedSize: { type: String, required: true },
+        frontDesign: {
+          designData: { type: Object },
+          designLayers: [{ type: Object }],
+          previewImage: { type: String },
+        },
+        backDesign: {
+          designData: { type: Object },
+          designLayers: [{ type: Object }],
+          previewImage: { type: String },
+        },
+        basePrice: { type: Number, required: true },
+        frontCustomizationCost: { type: Number, default: 0 },
+        backCustomizationCost: { type: Number, default: 0 },
+        totalPrice: { type: Number, required: true },
+        quantity: { type: Number, default: 1 },
+        addedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

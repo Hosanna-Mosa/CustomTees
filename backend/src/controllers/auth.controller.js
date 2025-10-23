@@ -92,6 +92,91 @@ export const getDesignById = async (req, res) => {
   }
 };
 
+export const deleteDesign = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const design = await Design.findOneAndDelete({ _id: id, user: req.user._id });
+    if (!design) return res.status(404).json({ success: false, message: 'Design not found' });
+    
+    // Remove design reference from user
+    req.user.designs = req.user.designs.filter(designId => designId.toString() !== id);
+    await req.user.save();
+    
+    res.json({ success: true, message: 'Design deleted successfully' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to delete design' });
+  }
+};
+
+// Cart functionality
+export const addToCart = async (req, res) => {
+  try {
+    const cartItem = req.body;
+    
+    // Add cart item to user's cart array
+    req.user.cart.push(cartItem);
+    await req.user.save();
+    
+    res.json({ success: true, message: 'Item added to cart', data: req.user.cart });
+  } catch (e) {
+    console.error('[Auth Controller] Add to cart error:', e);
+    res.status(500).json({ success: false, message: 'Failed to add to cart' });
+  }
+};
+
+export const getCart = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate('cart.productId');
+    res.json({ success: true, data: user.cart });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to fetch cart' });
+  }
+};
+
+export const updateCartItem = async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { quantity } = req.body;
+    
+    const cartItem = req.user.cart.id(itemId);
+    if (!cartItem) return res.status(404).json({ success: false, message: 'Cart item not found' });
+    
+    cartItem.quantity = quantity;
+    await req.user.save();
+    
+    res.json({ success: true, message: 'Cart item updated', data: req.user.cart });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to update cart item' });
+  }
+};
+
+export const removeFromCart = async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    
+    const cartItem = req.user.cart.id(itemId);
+    if (!cartItem) return res.status(404).json({ success: false, message: 'Cart item not found' });
+    
+    cartItem.deleteOne();
+    await req.user.save();
+    
+    res.json({ success: true, message: 'Item removed from cart', data: req.user.cart });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to remove from cart' });
+  }
+};
+
+export const clearCart = async (req, res) => {
+  try {
+    req.user.cart = [];
+    await req.user.save();
+    
+    res.json({ success: true, message: 'Cart cleared' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Failed to clear cart' });
+  }
+};
+
 export const addAddress = async (req, res) => {
   const address = req.body;
   req.user.addresses.push(address);
