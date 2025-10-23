@@ -109,23 +109,66 @@ export default function Orders() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {order.items?.map((item: any, index: number) => (
-                        <div key={index} className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
-                          <img 
-                            src={item.product?.images?.[0]?.url || item.product?.image} 
-                            alt={item.product?.name} 
-                            className="w-16 h-16 object-cover rounded-lg" 
-                          />
-                          <div className="flex-1">
-                            <h4 className="font-semibold">{item.product?.name}</h4>
-                            <p className="text-sm text-muted-foreground">{item.product?.description}</p>
-                            <div className="flex items-center gap-4 mt-2 text-sm">
-                              <span>Qty: {item.quantity}</span>
-                              <span className="font-semibold text-primary">₹{Number(item.price).toFixed(2)}</span>
+                      {order.items?.map((item: any, index: number) => {
+                        // Debug: Log the item structure to understand the data
+                        console.log('Order item:', item);
+                        console.log('Custom design:', item.customDesign);
+                        console.log('Product:', item.product);
+                        
+                        // For cart-based orders, use custom design preview, otherwise use product image
+                        // Check both possible structures: customDesign (from order) and direct frontDesign (from cart)
+                        const imageSrc = item.customDesign?.frontDesign?.previewImage || 
+                                       item.customDesign?.backDesign?.previewImage ||
+                                       item.frontDesign?.previewImage ||
+                                       item.backDesign?.previewImage ||
+                                       item.product?.images?.[0]?.url || 
+                                       item.product?.image;
+                        
+                        console.log('Image source:', imageSrc);
+                        console.log('Image source length:', imageSrc?.length);
+                        console.log('Image source type:', typeof imageSrc);
+                        
+                        return (
+                          <div key={index} className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
+                            <div className="w-16 h-16 flex-shrink-0">
+                              {imageSrc ? (
+                                <img 
+                                  src={imageSrc} 
+                                  alt={item.product?.name || 'Custom Design'} 
+                                  className="w-full h-full object-cover rounded-lg"
+                                  onLoad={() => console.log('Image loaded successfully')}
+                                  onError={(e) => {
+                                    console.log('Image failed to load:', e);
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full bg-muted rounded-lg flex items-center justify-center ${imageSrc ? 'hidden' : ''}`}>
+                                <Package className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-semibold">{item.product?.name || 'Custom Product'}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {(item.customDesign || item.frontDesign || item.backDesign) ? (
+                                  <>
+                                    Size: {item.customDesign?.selectedSize || 'N/A'} | Color: {item.customDesign?.selectedColor || 'N/A'}
+                                    {(item.customDesign?.frontDesign || item.frontDesign) && <span> | Front Design</span>}
+                                    {(item.customDesign?.backDesign || item.backDesign) && <span> | Back Design</span>}
+                                  </>
+                                ) : (
+                                  item.product?.description
+                                )}
+                              </p>
+                              <div className="flex items-center gap-4 mt-2 text-sm">
+                                <span>Qty: {item.quantity}</span>
+                                <span className="font-semibold text-primary">₹{Number(item.price).toFixed(2)}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       
                       <Separator />
                       

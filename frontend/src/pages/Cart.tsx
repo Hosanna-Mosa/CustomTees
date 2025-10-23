@@ -33,7 +33,7 @@ export default function Cart() {
       toast.error("Your cart is empty");
       return;
     }
-    toast.success("Proceeding to checkout...");
+    navigate('/checkout');
   };
 
   if (loading) {

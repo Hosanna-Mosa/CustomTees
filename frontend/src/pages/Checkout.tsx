@@ -9,15 +9,16 @@ import { Separator } from '@/components/ui/separator'
 import { Navbar } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
 import { AddressSelector } from '@/components/AddressSelector'
-import { fetchProducts, createOrder, getMe } from '@/lib/api'
+import { createOrderFromCart, getMe } from '@/lib/api'
+import { useCart } from '@/contexts/CartContext'
+import { useAuth } from '@/hooks/use-auth'
 import { ShoppingBag, CreditCard, Truck, Shield } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function Checkout() {
   const navigate = useNavigate()
-  const { state } = useLocation() as any
-  const productId = state?.productId as string | undefined
-  const [product, setProduct] = useState<any>(null)
-  const [quantity, setQuantity] = useState(1)
+  const { cartItems, loading: cartLoading } = useCart()
+  const { isAuthenticated } = useAuth()
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod')
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const [userAddresses, setUserAddresses] = useState<any[]>([])
@@ -25,12 +26,16 @@ export default function Checkout() {
   const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!productId) return
-    fetchProducts().then((data) => {
-      const p = (data || []).find((d: any) => (d._id || d.id) === productId)
-      setProduct(p || null)
-    })
-  }, [productId])
+    if (!isAuthenticated) {
+      navigate('/login')
+      return
+    }
+    
+    if (cartItems.length === 0) {
+      navigate('/cart')
+      return
+    }
+  }, [isAuthenticated, cartItems.length, navigate])
 
   useEffect(() => {
     // Load user addresses
@@ -48,10 +53,12 @@ export default function Checkout() {
     })
   }, [])
 
-  const total = useMemo(() => (product ? Number(product.price) * quantity : 0), [product, quantity])
+  const total = useMemo(() => {
+    return cartItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0)
+  }, [cartItems])
 
   async function placeOrder() {
-    if (!product || !selectedAddressId) return
+    if (cartItems.length === 0 || !selectedAddressId) return
     
     const selectedAddress = userAddresses.find(addr => addr._id === selectedAddressId)
     if (!selectedAddress) {
@@ -62,35 +69,52 @@ export default function Checkout() {
     setLoading(true)
     setErr(null)
     try {
-      const res = await createOrder({ 
-        productId: product._id || product.id, 
-        quantity, 
+      const res = await createOrderFromCart({ 
         paymentMethod,
         shippingAddress: selectedAddress
       })
       const order = (res as any).data || res
+      
+      toast.success('Order placed successfully!')
+      
       if (paymentMethod === 'razorpay') {
-        navigate('/payments', { state: { orderId: order._id, total, product } })
+        navigate('/payments', { state: { orderId: order._id, total } })
       } else {
         navigate('/orders')
       }
     } catch (e: any) {
       setErr(e?.message || 'Failed to place order')
+      toast.error('Failed to place order')
     } finally {
       setLoading(false)
     }
   }
 
-  if (!productId) {
+  if (cartLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="container mx-auto p-6 flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading checkout...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  if (cartItems.length === 0) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <div className="container mx-auto p-6 flex-1 flex items-center justify-center">
           <Card className="w-full max-w-md">
             <CardContent className="p-6 text-center">
-              <h2 className="text-xl font-semibold mb-2">Invalid Checkout</h2>
-              <p className="text-muted-foreground mb-4">No product selected for checkout.</p>
-              <Button onClick={() => navigate('/products')}>Browse Products</Button>
+              <h2 className="text-xl font-semibold mb-2">Your Cart is Empty</h2>
+              <p className="text-muted-foreground mb-4">Add some items to your cart to proceed with checkout.</p>
+              <Button onClick={() => navigate('/cart')}>View Cart</Button>
             </CardContent>
           </Card>
         </div>
@@ -129,33 +153,46 @@ export default function Checkout() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {product && (
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg">
-                      <img 
-                        src={product.images?.[0]?.url || product.image} 
-                        alt={product.name} 
-                        className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg flex-shrink-0" 
-                      />
+                  {cartItems.map((item) => (
+                    <div key={item._id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
+                        {item.frontDesign?.previewImage ? (
+                          <img 
+                            src={item.frontDesign.previewImage} 
+                            alt={item.productName} 
+                            className="w-full h-full object-cover rounded-lg" 
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-muted rounded-lg flex items-center justify-center text-muted-foreground text-xs">
+                            No Preview
+                          </div>
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm sm:text-base">{product.name}</h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{product.description}</p>
+                        <h3 className="font-semibold text-sm sm:text-base">{item.productName}</h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          Size: {item.selectedSize} | Color: {item.selectedColor}
+                        </p>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                          Base: ₹{item.basePrice.toFixed(2)}
+                          {item.frontCustomizationCost > 0 && (
+                            <span> | Front: ₹{item.frontCustomizationCost.toFixed(2)}</span>
+                          )}
+                          {item.backCustomizationCost > 0 && (
+                            <span> | Back: ₹{item.backCustomizationCost.toFixed(2)}</span>
+                          )}
+                        </p>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
                           <div className="flex items-center gap-2">
-                            <Label htmlFor="quantity" className="text-xs sm:text-sm">Qty:</Label>
-                            <Input
-                              id="quantity"
-                              type="number"
-                              min={1}
-                              value={quantity}
-                              onChange={(e) => setQuantity(Number(e.target.value) || 1)}
-                              className="w-16 sm:w-20 h-8 text-xs sm:text-sm"
-                            />
+                            <Label className="text-xs sm:text-sm">Qty: {item.quantity}</Label>
                           </div>
-                          <span className="font-semibold text-primary text-sm sm:text-base">₹{Number(product.price).toFixed(2)}</span>
+                          <span className="font-semibold text-primary text-sm sm:text-base">
+                            ₹{(item.totalPrice * item.quantity).toFixed(2)}
+                          </span>
                         </div>
                       </div>
                     </div>
-                  )}
+                  ))}
                   
                   <Separator />
                   
@@ -239,7 +276,7 @@ export default function Checkout() {
                   
                   <Button 
                     onClick={placeOrder} 
-                    disabled={loading || !product || !selectedAddressId}
+                    disabled={loading || cartItems.length === 0 || !selectedAddressId}
                     className="w-full h-10 sm:h-12 text-sm sm:text-lg"
                     size="lg"
                   >
