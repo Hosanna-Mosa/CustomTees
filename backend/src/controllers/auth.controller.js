@@ -119,6 +119,7 @@ export const addToCart = async (req, res) => {
     
     res.json({ success: true, message: 'Item added to cart', data: req.user.cart });
   } catch (e) {
+    console.error('[Auth Controller] Add to cart error:', e);
     res.status(500).json({ success: false, message: 'Failed to add to cart' });
   }
 };

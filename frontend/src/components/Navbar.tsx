@@ -4,6 +4,7 @@ import { ShoppingCart, User, Menu, X, Search, Phone } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useCart } from "@/contexts/CartContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SearchModal } from "@/components/SearchModal";
 
@@ -12,6 +13,7 @@ export const Navbar = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
   const { isAuthenticated, logout } = useAuth();
+  const { cartCount } = useCart();
   
   const isActive = (path: string) => location.pathname === path;
   
@@ -113,9 +115,11 @@ export const Navbar = () => {
             <Link to="/cart">
               <Button variant="ghost" size="icon" className="relative h-8 w-8 sm:h-10 sm:w-10  -mr-1 sm:mr-0">
                 <ShoppingCart className="h-4 w-4 sm:h-5 gap-2 sm:w-5" />
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                  0
-                </span>
+                {cartCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                    {cartCount}
+                  </span>
+                )}
               </Button>
             </Link>
             

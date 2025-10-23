@@ -25,7 +25,8 @@ import {
 import { toast } from "sonner";
 import { HexColorPicker } from "react-colorful";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchProducts, fetchProductBySlug, saveMyDesign, getMyDesignById, addToCart } from "@/lib/api";
+import { fetchProducts, fetchProductBySlug, saveMyDesign, getMyDesignById } from "@/lib/api";
+import { useCart } from "@/contexts/CartContext";
 
 // Types
 type Step = "category" | "product" | "design";
@@ -88,6 +89,7 @@ const FONTS = ["Arial", "Helvetica", "Times New Roman", "Courier New", "Georgia"
 const PRICE_PER_PIXEL = 0.02; // ₹ per pixel area
 
 export default function Customize() {
+  const { addItemToCart } = useCart();
   const location = useLocation() as any;
   // Step management
   const [step, setStep] = useState<Step>("category");
@@ -985,13 +987,24 @@ export default function Customize() {
     toast.success("Design downloaded!");
   };
 
+
   const handleAddToCart = async () => {
     if (!fabricCanvas || !selectedProduct || !selectedColor) {
       toast.error("Please complete all steps before adding to cart");
       return;
     }
     
+    // Check if user is authenticated
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error("Please login to add items to cart");
+      return;
+    }
+    
     try {
+      console.log("[Customize] Starting add to cart process...");
+      console.log("[Customize] User token exists:", !!token);
+      
       // Sync current canvas object positions/styles back into layer state for accuracy
       const syncLayersFromCanvas = (layers: DesignLayer[]): DesignLayer[] => {
         if (!fabricCanvas) return layers;
@@ -1019,7 +1032,41 @@ export default function Customize() {
       const updatedBackLayers = designSide === 'back' ? syncLayersFromCanvas(backDesignLayers) : backDesignLayers;
 
       const currentDesignData = fabricCanvas.toJSON();
-      const currentPreviewImage = fabricCanvas.toDataURL({ format: "png", quality: 1, multiplier: 2 });
+      
+      // Compress the preview image to reduce size and avoid MongoDB BSON limit
+      const compressImage = (dataUrl: string, quality: number = 0.7): Promise<string> => {
+        return new Promise<string>((resolve) => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const img = new Image();
+          
+          img.onload = () => {
+            // Set canvas size to reasonable dimensions
+            const maxWidth = 400;
+            const maxHeight = 500;
+            let { width, height } = img;
+            
+            if (width > maxWidth || height > maxHeight) {
+              const ratio = Math.min(maxWidth / width, maxHeight / height);
+              width *= ratio;
+              height *= ratio;
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            ctx?.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          };
+          
+          img.src = dataUrl;
+        });
+      };
+      
+      const currentPreviewImage = await compressImage(
+        fabricCanvas.toDataURL({ format: "png", quality: 1, multiplier: 2 }),
+        0.6 // Lower quality for smaller size
+      );
       
       // Prepare cart item data
       const cartItem = {
@@ -1045,11 +1092,21 @@ export default function Customize() {
         quantity: 1,
       };
       
-      // Add to cart via API
-      await addToCart(cartItem);
+      // Check if cart item is too large for MongoDB (16MB limit)
+      const cartItemSize = JSON.stringify(cartItem).length;
+      console.log("[Customize] Cart item size:", cartItemSize, "bytes");
       
-      toast.success("Added to cart!");
+      if (cartItemSize > 15 * 1024 * 1024) { // 15MB safety margin
+        toast.error("Design data is too large. Please reduce image size or remove some elements.");
+        return;
+      }
+      
+      console.log("[Customize] Cart item prepared:", cartItem);
+      
+      // Add to cart via context
+      await addItemToCart(cartItem);
     } catch (error) {
+      console.error("[Customize] Add to cart error:", error);
       toast.error("Failed to add to cart");
     }
   };

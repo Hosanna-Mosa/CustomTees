@@ -5,10 +5,18 @@ export const protect = async (req, res, next) => {
   try {
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
-    if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+    
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select('-password');
-    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+    
     req.user = user;
     next();
   } catch (e) {

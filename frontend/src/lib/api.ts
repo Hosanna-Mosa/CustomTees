@@ -16,6 +16,7 @@ async function request(path: string, opts: { method?: Method; body?: any; isForm
 
   const contentType = res.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await res.json() : await res.text();
+  
   if (!res.ok) {
     const message = (data && (data.message || data.error)) || res.statusText || 'Request failed';
     const status = res.status;
