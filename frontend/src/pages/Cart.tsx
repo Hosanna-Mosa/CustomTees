@@ -29,6 +29,10 @@ export default function Cart() {
   };
 
   const handleCheckout = () => {
+    if (cartItems.length === 0) {
+      toast.error("Your cart is empty");
+      return;
+    }
     toast.success("Proceeding to checkout...");
   };
 
@@ -119,7 +123,8 @@ export default function Cart() {
                             type="number"
                             min="1"
                             value={item.quantity}
-                            className="w-16 rounded-md border border-input bg-background px-2 py-1 text-center"
+                            disabled={loading}
+                            className="w-16 rounded-md border border-input bg-background px-2 py-1 text-center disabled:opacity-50"
                             onChange={(e) => {
                               const newQuantity = parseInt(e.target.value) || 1;
                               updateItemQuantity(item._id, newQuantity);
@@ -134,6 +139,7 @@ export default function Cart() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            disabled={loading}
                             onClick={() => handleRemoveItem(item._id)}
                           >
                             <Trash2 className="h-4 w-4" />

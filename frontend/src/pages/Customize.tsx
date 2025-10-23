@@ -166,6 +166,7 @@ export default function Customize() {
   // Loading state
   const [loading, setLoading] = useState(false);
   const [savingDesign, setSavingDesign] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
   
   // Pricing
   const basePrice = selectedProduct?.price || 0;
@@ -1001,6 +1002,8 @@ export default function Customize() {
       return;
     }
     
+    setAddingToCart(true);
+    
     try {
       console.log("[Customize] Starting add to cart process...");
       console.log("[Customize] User token exists:", !!token);
@@ -1108,6 +1111,8 @@ export default function Customize() {
     } catch (error) {
       console.error("[Customize] Add to cart error:", error);
       toast.error("Failed to add to cart");
+    } finally {
+      setAddingToCart(false);
     }
   };
 
@@ -1609,9 +1614,22 @@ export default function Customize() {
               </Tabs>
 
               <div className="mt-6 space-y-3 border-t pt-6">
-                <Button onClick={handleAddToCart} className="w-full gradient-hero shadow-primary">
-                  <ShoppingCart className="mr-2 h-4 w-4" />
-                  Add to Cart
+                <Button 
+                  onClick={handleAddToCart} 
+                  className="w-full gradient-hero shadow-primary"
+                  disabled={addingToCart}
+                >
+                  {addingToCart ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Adding to Cart...
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart className="mr-2 h-4 w-4" />
+                      Add to Cart
+                    </>
+                  )}
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
                   Free shipping on orders over $50
