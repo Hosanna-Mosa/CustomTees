@@ -66,6 +66,36 @@ export const getMyDesignById = async (id: string) => {
   const res = await request(`/auth/me/designs/${id}`);
   return (res as any).data;
 };
+export const deleteMyDesign = async (id: string) => {
+  return request(`/auth/me/designs/${id}`, { method: 'DELETE' });
+};
+
+// Cart API functions
+export const addToCart = async (cartItem: any) => {
+  return request('/auth/me/cart', { method: 'POST', body: cartItem });
+};
+
+export const getCart = async () => {
+  const res = await request('/auth/me/cart');
+  return (res as any).data;
+};
+
+export const updateCartItem = async (itemId: string, quantity: number) => {
+  return request(`/auth/me/cart/${itemId}`, { method: 'PUT', body: { quantity } });
+};
+
+export const removeFromCart = async (itemId: string) => {
+  return request(`/auth/me/cart/${itemId}`, { method: 'DELETE' });
+};
+
+export const clearCart = async () => {
+  return request('/auth/me/cart', { method: 'DELETE' });
+};
+
+// Order API functions
+export const createOrderFromCart = async (orderData: any) => {
+  return request('/orders/from-cart', { method: 'POST', body: orderData });
+};
 
 export const adminAddProduct = async (form: FormData) => {
   return request('/products', { method: 'POST', body: form, isForm: true });

@@ -25,7 +25,7 @@ import {
 import { toast } from "sonner";
 import { HexColorPicker } from "react-colorful";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchProducts, fetchProductBySlug, saveMyDesign, getMyDesignById } from "@/lib/api";
+import { fetchProducts, fetchProductBySlug, saveMyDesign, getMyDesignById, addToCart } from "@/lib/api";
 
 // Types
 type Step = "category" | "product" | "design";
@@ -107,6 +107,20 @@ export default function Customize() {
   const [designSide, setDesignSide] = useState<"front" | "back">("front");
   const [frontDesignLayers, setFrontDesignLayers] = useState<DesignLayer[]>([]);
   const [backDesignLayers, setBackDesignLayers] = useState<DesignLayer[]>([]);
+  
+  // Use refs to store latest layer state to avoid stale closures
+  const frontDesignLayersRef = useRef<DesignLayer[]>([]);
+  const backDesignLayersRef = useRef<DesignLayer[]>([]);
+  const previousDesignSideRef = useRef<"front" | "back">("front");
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    frontDesignLayersRef.current = frontDesignLayers;
+  }, [frontDesignLayers]);
+  
+  useEffect(() => {
+    backDesignLayersRef.current = backDesignLayers;
+  }, [backDesignLayers]);
   const [textColor, setTextColor] = useState("#000000");
   const [fontSize, setFontSize] = useState(40);
   const [selectedFont, setSelectedFont] = useState("Arial");
@@ -149,6 +163,7 @@ export default function Customize() {
   
   // Loading state
   const [loading, setLoading] = useState(false);
+  const [savingDesign, setSavingDesign] = useState(false);
   
   // Pricing
   const basePrice = selectedProduct?.price || 0;
@@ -206,7 +221,7 @@ export default function Customize() {
       return width * height;
     };
 
-  }, [fabricCanvas, selectedColor, selectedProduct, showBackground, step]);
+  }, [selectedColor, selectedProduct, showBackground, step]);
 
   // Canvas element ref
   const canvasElRef = useCallback((el: HTMLCanvasElement | null) => {
@@ -244,7 +259,7 @@ export default function Customize() {
       }
       didInitCanvasRef.current = false;
     };
-  }, [step, selectedProduct, selectedColor, designSide, setupCanvasInstance, fabricCanvas]);
+  }, [step, selectedProduct, selectedColor, designSide, setupCanvasInstance]);
 
   // Switch base image when changing sides
   useEffect(() => {
@@ -253,7 +268,54 @@ export default function Customize() {
     // eslint-disable-next-line no-console
     console.log("[Customize] Side switching to:", designSide);
     
-    // Clear ALL objects first
+    // Store current canvas state from the PREVIOUS side before switching
+    const storeCurrentCanvasState = () => {
+      const objects = fabricCanvas.getObjects();
+      const previousSide = previousDesignSideRef.current;
+      const currentLayers = previousSide === "front" ? frontDesignLayersRef.current : backDesignLayersRef.current;
+      const updatedLayers = [...currentLayers];
+      
+      // Update layer positions from current canvas objects
+      objects.forEach((obj: any) => {
+        if (obj.layerId && (obj.name === "custom-text" || obj.name === "custom-image")) {
+          const layerIndex = updatedLayers.findIndex(layer => layer.id === obj.layerId);
+          if (layerIndex !== -1) {
+            updatedLayers[layerIndex] = {
+              ...updatedLayers[layerIndex],
+              data: {
+                ...updatedLayers[layerIndex].data,
+                x: obj.left || 0,
+                y: obj.top || 0,
+                rotation: obj.angle || 0,
+                scale: obj.scaleX || 1,
+                size: obj.fontSize || updatedLayers[layerIndex].data.size,
+                color: obj.fill || updatedLayers[layerIndex].data.color,
+                font: obj.fontFamily || updatedLayers[layerIndex].data.font,
+              }
+            };
+          }
+        }
+      });
+      
+      // Update the appropriate state for the PREVIOUS side
+      if (previousSide === "front") {
+        setFrontDesignLayers(updatedLayers);
+      } else {
+        setBackDesignLayers(updatedLayers);
+      }
+      
+      return updatedLayers;
+    };
+    
+    // Only store state if we're actually switching sides (not initial load)
+    if (previousDesignSideRef.current !== designSide) {
+      const currentStoredLayers = storeCurrentCanvasState();
+    }
+    
+    // Update the previous side ref for next time
+    previousDesignSideRef.current = designSide;
+    
+    // Clear canvas
     fabricCanvas.clear();
     
     // Add background if enabled
@@ -301,17 +363,13 @@ export default function Customize() {
               fabricCanvas.sendObjectToBack(bg);
             }
             
-            // Debug: Log all objects on canvas
-            const allObjects = fabricCanvas.getObjects();
+            // Now reload design layers for the NEW side with EXACT positions
+            const targetLayers = designSide === "front" ? frontDesignLayersRef.current : backDesignLayersRef.current;
             // eslint-disable-next-line no-console
-            console.log("[Customize] Canvas objects after adding base photo:", allObjects.map(o => ({ name: (o as any).name, type: o.type, left: o.left, top: o.top })));
+            console.log("[Customize] Loading", targetLayers.length, "design elements for", designSide);
             
-            // Now reload design layers for current side
-            const currentLayers = designSide === "front" ? frontDesignLayers : backDesignLayers;
-            // eslint-disable-next-line no-console
-            console.log("[Customize] Loading", currentLayers.length, "design elements for", designSide);
-            
-            currentLayers.forEach((layer) => {
+            // Add each layer with exact positioning
+            targetLayers.forEach((layer) => {
               if (layer.type === "text") {
                 const text = new FabricText(layer.data.content || "", {
                   left: layer.data.x,
@@ -326,6 +384,8 @@ export default function Customize() {
                 (text as any).name = "custom-text";
                 (text as any).layerId = layer.id;
                 fabricCanvas.add(text);
+                // eslint-disable-next-line no-console
+                console.log("[Customize] Added text:", layer.data.content, "at position:", layer.data.x, layer.data.y);
               } else if (layer.type === "image" && layer.data.url) {
                 FabricImage.fromURL(layer.data.url).then((img) => {
                   img.set({
@@ -339,13 +399,15 @@ export default function Customize() {
                   (img as any).layerId = layer.id;
                   fabricCanvas.add(img);
                   fabricCanvas.renderAll();
+                  // eslint-disable-next-line no-console
+                  console.log("[Customize] Added image at position:", layer.data.x, layer.data.y);
                 });
               }
             });
             
             fabricCanvas.renderAll();
             // eslint-disable-next-line no-console
-            console.log("[Customize] Canvas rendered after adding", designSide, "image");
+            console.log("[Customize] Canvas rendered after adding", designSide, "image and layers");
           })
           .catch((err) => {
             // eslint-disable-next-line no-console
@@ -357,7 +419,7 @@ export default function Customize() {
         console.warn("[Customize] No", designSide, "image available");
       }
     }
-  }, [designSide, fabricCanvas, step, selectedProduct, selectedColor, frontDesignLayers, backDesignLayers, showBackground]);
+  }, [designSide, fabricCanvas, step, selectedProduct, selectedColor, showBackground]);
 
   // Toggle background photo on/off
   useEffect(() => {
@@ -384,6 +446,113 @@ export default function Customize() {
       fabricCanvas.requestRenderAll();
     }
   }, [fontSize, textColor, selectedFont, fabricCanvas]);
+
+  // Continuous position sync - update layer positions when objects move
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    const updateLayerPositions = () => {
+      const objects = fabricCanvas.getObjects();
+      const currentLayers = designSide === "front" ? frontDesignLayersRef.current : backDesignLayersRef.current;
+      const updatedLayers = [...currentLayers];
+      let hasChanges = false;
+
+      objects.forEach((obj: any) => {
+        if (obj.layerId && (obj.name === "custom-text" || obj.name === "custom-image")) {
+          const layerIndex = updatedLayers.findIndex(layer => layer.id === obj.layerId);
+          if (layerIndex !== -1) {
+            const currentLayer = updatedLayers[layerIndex];
+            const newData = {
+              ...currentLayer.data,
+              x: obj.left || 0,
+              y: obj.top || 0,
+              rotation: obj.angle || 0,
+              scale: obj.scaleX || 1,
+              size: obj.fontSize || currentLayer.data.size,
+              color: obj.fill || currentLayer.data.color,
+              font: obj.fontFamily || currentLayer.data.font,
+            };
+
+            // Check if position actually changed
+            if (
+              currentLayer.data.x !== newData.x ||
+              currentLayer.data.y !== newData.y ||
+              currentLayer.data.rotation !== newData.rotation ||
+              currentLayer.data.scale !== newData.scale
+            ) {
+              updatedLayers[layerIndex] = {
+                ...currentLayer,
+                data: newData
+              };
+              hasChanges = true;
+            }
+          }
+        }
+      });
+
+      // Only update state if there are actual changes
+      if (hasChanges) {
+        if (designSide === "front") {
+          setFrontDesignLayers(updatedLayers);
+        } else {
+          setBackDesignLayers(updatedLayers);
+        }
+      }
+    };
+
+    // Debounced update to prevent too many rapid updates
+    let updateTimeout: NodeJS.Timeout;
+    const debouncedUpdate = () => {
+      clearTimeout(updateTimeout);
+      updateTimeout = setTimeout(updateLayerPositions, 100);
+    };
+
+    // Add event listeners for object changes
+    fabricCanvas.on("object:modified", debouncedUpdate);
+    fabricCanvas.on("object:moving", debouncedUpdate);
+    fabricCanvas.on("object:scaling", debouncedUpdate);
+    fabricCanvas.on("object:rotating", debouncedUpdate);
+
+    // Cleanup
+    return () => {
+      clearTimeout(updateTimeout);
+      fabricCanvas.off("object:modified", debouncedUpdate);
+      fabricCanvas.off("object:moving", debouncedUpdate);
+      fabricCanvas.off("object:scaling", debouncedUpdate);
+      fabricCanvas.off("object:rotating", debouncedUpdate);
+    };
+  }, [fabricCanvas, designSide]);
+
+  // Handle canvas object selection
+  useEffect(() => {
+    if (!fabricCanvas) return;
+    
+    const handleObjectSelection = () => {
+      const activeObject = fabricCanvas.getActiveObject();
+      if (activeObject && (activeObject as any).name === "custom-text") {
+        // Populate text input with selected text content
+        setTextInput((activeObject as any).text || "");
+        setFontSize((activeObject as any).fontSize || 40);
+        setTextColor((activeObject as any).fill || "#000000");
+        setSelectedFont((activeObject as any).fontFamily || "Arial");
+      } else {
+        // Clear text input when no text is selected
+        setTextInput("");
+      }
+    };
+
+    fabricCanvas.on("selection:created", handleObjectSelection);
+    fabricCanvas.on("selection:updated", handleObjectSelection);
+    fabricCanvas.on("selection:cleared", () => {
+      setTextInput("");
+    });
+
+    return () => {
+      fabricCanvas.off("selection:created", handleObjectSelection);
+      fabricCanvas.off("selection:updated", handleObjectSelection);
+      fabricCanvas.off("selection:cleared");
+    };
+  }, [fabricCanvas]);
 
   // Dynamic pricing updates on canvas object changes
   useEffect(() => {
@@ -463,7 +632,7 @@ export default function Customize() {
       fabricCanvas.off("object:added", debouncedUpdate);
       fabricCanvas.off("object:removed", debouncedUpdate);
     };
-  }, [fabricCanvas, basePrice, designSide, frontDesignLayers, backDesignLayers]);
+  }, [fabricCanvas, basePrice, designSide]);
 
   // Close color dropdown when clicking outside
   useEffect(() => {
@@ -631,40 +800,67 @@ export default function Customize() {
       return;
     }
 
-    const text = new FabricText(content, {
-      left: 200,
-      top: 250,
-      fontSize: fontSize,
-      fill: textColor,
-      fontFamily: selectedFont,
-    });
-    (text as any).name = "custom-text";
-    (text as any).layerId = `text-${Date.now()}`;
+    // Check if there's an active text object selected
+    const activeObject = fabricCanvas.getActiveObject();
+    if (activeObject && (activeObject as any).name === "custom-text") {
+      // Edit existing text
+      const layerId = (activeObject as any).layerId;
+      (activeObject as any).set({ text: content });
+      
+      // Update the layer data
+      const updatedLayers = designLayers.map(layer => {
+        if (layer.id === layerId) {
+          return {
+            ...layer,
+            data: {
+              ...layer.data,
+              content: content
+            }
+          };
+        }
+        return layer;
+      });
+      setDesignLayers(updatedLayers);
+      
+      fabricCanvas.renderAll();
+      toast.success("Text updated!");
+    } else {
+      // Add new text
+      const text = new FabricText(content, {
+        left: 200,
+        top: 250,
+        fontSize: fontSize,
+        fill: textColor,
+        fontFamily: selectedFont,
+      });
+      (text as any).name = "custom-text";
+      (text as any).layerId = `text-${Date.now()}`;
 
-    fabricCanvas.add(text);
-    fabricCanvas.setActiveObject(text);
-    fabricCanvas.renderAll();
+      fabricCanvas.add(text);
+      fabricCanvas.setActiveObject(text);
+      fabricCanvas.renderAll();
 
-    // Add to design layers
-    const layer: DesignLayer = {
-      id: (text as any).layerId,
-      type: "text",
-      data: {
-        content,
-        font: selectedFont,
-        color: textColor,
-        size: fontSize,
-        x: 200,
-        y: 250,
-        scale: 1,
-        rotation: 0,
-      },
-      // Fixed cost for layer tracking (not used for pricing anymore)
-      cost: selectedProduct?.customizationPricing?.perTextLayer || 10,
-    };
-    setDesignLayers([...designLayers, layer]);
+      // Add to design layers
+      const layer: DesignLayer = {
+        id: (text as any).layerId,
+        type: "text",
+        data: {
+          content,
+          font: selectedFont,
+          color: textColor,
+          size: fontSize,
+          x: 200,
+          y: 250,
+          scale: 1,
+          rotation: 0,
+        },
+        // Fixed cost for layer tracking (not used for pricing anymore)
+        cost: selectedProduct?.customizationPricing?.perTextLayer || 10,
+      };
+      setDesignLayers([...designLayers, layer]);
 
-    toast.success("Text added! Drag to reposition.");
+      toast.success("Text added! Drag to reposition.");
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -713,6 +909,9 @@ export default function Customize() {
     };
 
     reader.readAsDataURL(file);
+    
+    // Reset the file input to allow selecting the same file again
+    e.target.value = '';
   };
 
   const handleDeleteSelected = () => {
@@ -793,15 +992,36 @@ export default function Customize() {
     }
     
     try {
-      // Export current design as JSON and PNG
+      // Sync current canvas object positions/styles back into layer state for accuracy
+      const syncLayersFromCanvas = (layers: DesignLayer[]): DesignLayer[] => {
+        if (!fabricCanvas) return layers;
+        const objects = fabricCanvas.getObjects();
+        return layers.map((layer) => {
+          const obj = objects.find((o: any) => (o as any).layerId === layer.id) as any;
+          if (!obj) return layer;
+          const next = { ...layer } as DesignLayer;
+          next.data = {
+            ...next.data,
+            x: obj.left || 0,
+            y: obj.top || 0,
+            rotation: obj.angle || 0,
+            // prefer scaleX for uniform scaling; Fabric uses separate X/Y
+            scale: typeof obj.scaleX === 'number' ? obj.scaleX : (next.data.scale || 1),
+            size: obj.fontSize || next.data.size,
+            color: obj.fill || next.data.color,
+            font: obj.fontFamily || next.data.font,
+          } as any;
+          return next;
+        });
+      };
+
+      const updatedFrontLayers = designSide === 'front' ? syncLayersFromCanvas(frontDesignLayers) : frontDesignLayers;
+      const updatedBackLayers = designSide === 'back' ? syncLayersFromCanvas(backDesignLayers) : backDesignLayers;
+
       const currentDesignData = fabricCanvas.toJSON();
-      const currentPreviewImage = fabricCanvas.toDataURL({
-        format: "png",
-        quality: 1,
-        multiplier: 2,
-      });
+      const currentPreviewImage = fabricCanvas.toDataURL({ format: "png", quality: 1, multiplier: 2 });
       
-      // Prepare cart item data with both front and back designs
+      // Prepare cart item data
       const cartItem = {
         productId: selectedProduct._id,
         productName: selectedProduct.name,
@@ -810,23 +1030,23 @@ export default function Customize() {
         selectedSize,
         frontDesign: {
           designData: currentDesignData,
-          designLayers: frontDesignLayers,
+          designLayers: updatedFrontLayers,
           previewImage: currentPreviewImage,
         },
         backDesign: {
-          designLayers: backDesignLayers,
-          // Note: Back preview would need to be generated separately
+          designData: null, // Will be updated when back design is complete
+          designLayers: updatedBackLayers,
+          previewImage: null,
         },
         basePrice,
         frontCustomizationCost,
         backCustomizationCost,
         totalPrice,
+        quantity: 1,
       };
       
-      // Store in localStorage (you can send to backend API here)
-      const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-      existingCart.push(cartItem);
-      localStorage.setItem("cart", JSON.stringify(existingCart));
+      // Add to cart via API
+      await addToCart(cartItem);
       
       toast.success("Added to cart!");
     } catch (error) {
@@ -839,6 +1059,8 @@ export default function Customize() {
       toast.error("Please complete all steps before saving");
       return;
     }
+    
+    setSavingDesign(true);
     try {
       // Sync current canvas object positions/styles back into layer state for accuracy
       const syncLayersFromCanvas = (layers: DesignLayer[]): DesignLayer[] => {
@@ -889,6 +1111,8 @@ export default function Customize() {
       toast.success("Design saved to your account");
     } catch (e: any) {
       toast.error(e?.message || "Failed to save design");
+    } finally {
+      setSavingDesign(false);
     }
   };
 
@@ -1210,8 +1434,15 @@ export default function Customize() {
                 <Download className="mr-2 h-4 w-4" />
                 Download
               </Button>
-              <Button size="sm" onClick={handleSaveDesign}>
-                Save
+              <Button size="sm" onClick={handleSaveDesign} disabled={savingDesign}>
+                {savingDesign ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
               </Button>
             </div>
           </div>
@@ -1286,31 +1517,11 @@ export default function Customize() {
 
                   <Button onClick={handleAddText} className="w-full">
                     <Type className="mr-2 h-4 w-4" />
-                    Add Text
+                    {fabricCanvas?.getActiveObject() && (fabricCanvas.getActiveObject() as any).name === "custom-text" ? "Update Text" : "Add Text"}
                   </Button>
                 </TabsContent>
 
                 <TabsContent value="image" className="space-y-4 pt-4">
-                  <div className="flex items-center justify-between rounded-md border p-3">
-                    <div>
-                      <Label className="text-sm">Show Background Photo</Label>
-                      <p className="text-xs text-muted-foreground">Toggle mannequin/background image</p>
-                    </div>
-                    <Switch checked={showBackground} onCheckedChange={setShowBackground} />
-                  </div>
-                  <div className="flex items-center justify-between rounded-md border p-3">
-                    <div>
-                      <Label className="text-sm">Transparent background</Label>
-                      <p className="text-xs text-muted-foreground">Makes white pixels transparent on selected image</p>
-                    </div>
-                    <Switch
-                      checked={transparentBgEnabled}
-                      onCheckedChange={(v) => {
-                        setTransparentBgEnabled(v);
-                        applyTransparentBgToActiveImage(v);
-                      }}
-                    />
-                  </div>
                   <div>
                     <Label className="mb-2 block">Upload Image</Label>
                     <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
@@ -1333,13 +1544,9 @@ export default function Customize() {
                     </div>
                   </div>
 
-                  <div className="rounded-lg bg-muted/50 p-4 text-sm">
-                    <p className="font-medium">Tips:</p>
-                    <ul className="mt-2 list-inside list-disc space-y-1 text-muted-foreground">
-                      <li>Use PNG files for best quality</li>
-                      <li>Transparent backgrounds work best</li>
-                      <li>Drag to reposition after upload</li>
-                    </ul>
+                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm">
+                    <p className="font-medium text-blue-800">💡 Pro Tip:</p>
+                    <p className="mt-1 text-blue-700">PNG images give you the best results with transparent backgrounds and high quality.</p>
                   </div>
                 </TabsContent>
               </Tabs>

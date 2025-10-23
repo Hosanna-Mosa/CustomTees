@@ -1,5 +1,6 @@
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
+import User from '../models/User.js';
 
 export const createOrder = async (req, res) => {
   const { productId, quantity = 1, paymentMethod, shippingAddress } = req.body;
@@ -15,6 +16,52 @@ export const createOrder = async (req, res) => {
     shippingAddress,
   });
   res.status(201).json({ success: true, data: order });
+};
+
+export const createOrderFromCart = async (req, res) => {
+  try {
+    const { paymentMethod, shippingAddress } = req.body;
+    
+    // Get user with cart
+    const user = await User.findById(req.user._id);
+    if (!user || !user.cart.length) {
+      return res.status(400).json({ success: false, message: 'Cart is empty' });
+    }
+    
+    // Convert cart items to order items
+    const orderItems = user.cart.map(cartItem => ({
+      product: cartItem.productId,
+      quantity: cartItem.quantity,
+      price: cartItem.totalPrice,
+      // Store custom design data
+      customDesign: {
+        frontDesign: cartItem.frontDesign,
+        backDesign: cartItem.backDesign,
+        selectedColor: cartItem.selectedColor,
+        selectedSize: cartItem.selectedSize,
+      }
+    }));
+    
+    // Calculate total
+    const total = user.cart.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
+    
+    // Create order
+    const order = await Order.create({
+      user: req.user._id,
+      items: orderItems,
+      total,
+      paymentMethod,
+      shippingAddress,
+    });
+    
+    // Clear user's cart after successful order
+    user.cart = [];
+    await user.save();
+    
+    res.status(201).json({ success: true, data: order });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to create order' });
+  }
 };
 
 export const myOrders = async (req, res) => {

@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { protect, verifyAdmin } from '../middlewares/auth.middleware.js';
-import { createOrder, myOrders, listOrders, updateStatus } from '../controllers/order.controller.js';
+import { createOrder, myOrders, listOrders, updateStatus, createOrderFromCart } from '../controllers/order.controller.js';
 
 const router = Router();
 
 // user
 router.post('/', protect, createOrder);
+router.post('/from-cart', protect, createOrderFromCart);
 router.get('/mine', protect, myOrders);
 
 // admin
