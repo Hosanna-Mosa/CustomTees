@@ -1071,6 +1071,8 @@ export default function Customize() {
         0.6 // Lower quality for smaller size
       );
       
+      console.log('[Customize] Preview image generated:', currentPreviewImage.substring(0, 100) + '...');
+      
       // Prepare cart item data
       const cartItem = {
         productId: selectedProduct._id,
@@ -1105,6 +1107,8 @@ export default function Customize() {
       }
       
       console.log("[Customize] Cart item prepared:", cartItem);
+      console.log("[Customize] Front design preview image length:", cartItem.frontDesign.previewImage?.length);
+      console.log("[Customize] Front design preview image start:", cartItem.frontDesign.previewImage?.substring(0, 50));
       
       // Add to cart via context
       await addItemToCart(cartItem);

@@ -5,6 +5,20 @@ const orderItemSchema = new mongoose.Schema(
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
     quantity: { type: Number, default: 1 },
     price: { type: Number, required: true }, // snapshot in cents
+    customDesign: {
+      frontDesign: {
+        designData: { type: Object },
+        designLayers: [{ type: Object }],
+        previewImage: { type: String },
+      },
+      backDesign: {
+        designData: { type: Object },
+        designLayers: [{ type: Object }],
+        previewImage: { type: String },
+      },
+      selectedColor: { type: String },
+      selectedSize: { type: String },
+    },
   },
   { _id: false }
 );

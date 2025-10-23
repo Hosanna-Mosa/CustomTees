@@ -29,18 +29,24 @@ export const createOrderFromCart = async (req, res) => {
     }
     
     // Convert cart items to order items
-    const orderItems = user.cart.map(cartItem => ({
-      product: cartItem.productId,
-      quantity: cartItem.quantity,
-      price: cartItem.totalPrice,
-      // Store custom design data
-      customDesign: {
-        frontDesign: cartItem.frontDesign,
-        backDesign: cartItem.backDesign,
-        selectedColor: cartItem.selectedColor,
-        selectedSize: cartItem.selectedSize,
-      }
-    }));
+    const orderItems = user.cart.map(cartItem => {
+      console.log('Cart item being converted:', cartItem);
+      console.log('Front design preview:', cartItem.frontDesign?.previewImage);
+      console.log('Back design preview:', cartItem.backDesign?.previewImage);
+      
+      return {
+        product: cartItem.productId,
+        quantity: cartItem.quantity,
+        price: cartItem.totalPrice,
+        // Store custom design data
+        customDesign: {
+          frontDesign: cartItem.frontDesign,
+          backDesign: cartItem.backDesign,
+          selectedColor: cartItem.selectedColor,
+          selectedSize: cartItem.selectedSize,
+        }
+      };
+    });
     
     // Calculate total
     const total = user.cart.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
@@ -54,6 +60,9 @@ export const createOrderFromCart = async (req, res) => {
       shippingAddress,
     });
     
+    console.log('Order created:', JSON.stringify(order, null, 2));
+    console.log('Order items:', order.items);
+    
     // Clear user's cart after successful order
     user.cart = [];
     await user.save();
@@ -66,6 +75,7 @@ export const createOrderFromCart = async (req, res) => {
 
 export const myOrders = async (req, res) => {
   const orders = await Order.find({ user: req.user._id }).populate('items.product').sort({ createdAt: -1 });
+  console.log('Orders being returned:', JSON.stringify(orders, null, 2));
   res.json({ success: true, data: orders });
 };
 
