@@ -72,6 +72,8 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   };
 
   const addItemToCart = async (item: any) => {
+    if (loading) return; // Prevent multiple simultaneous requests
+    
     try {
       setLoading(true);
       await addToCart(item);
