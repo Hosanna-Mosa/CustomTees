@@ -183,9 +183,15 @@ export default function Customize() {
   // Helper: initialize Fabric canvas
   const setupCanvasInstance = useCallback((el: HTMLCanvasElement) => {
     if (didInitCanvasRef.current || fabricCanvas) return;
+    
+    // Mobile-responsive canvas sizing
+    const isMobile = window.innerWidth < 768;
+    const canvasWidth = isMobile ? 300 : 500;
+    const canvasHeight = isMobile ? 360 : 600;
+    
     const canvas = new FabricCanvas(el, {
-      width: 500,
-      height: 600,
+      width: canvasWidth,
+      height: canvasHeight,
       backgroundColor: "transparent",
     });
     setFabricCanvas(canvas);
@@ -341,12 +347,15 @@ export default function Customize() {
             console.log("[Customize] Base image loaded successfully for", designSide, "Dimensions:", img.width, "x", img.height);
             img.set({ selectable: false, evented: false });
             
-            // Cover entire canvas area for full width/height
-            const canvasW = 500;
-            const canvasH = 600;
+            // Get canvas dimensions dynamically
+            const canvasW = fabricCanvas.getWidth();
+            const canvasH = fabricCanvas.getHeight();
+            
+            // Scale image to fit canvas while maintaining aspect ratio
             const scaleX = canvasW / (img.width || canvasW);
             const scaleY = canvasH / (img.height || canvasH);
-            const scale = Math.max(scaleX, scaleY);
+            const scale = Math.min(scaleX, scaleY); // Use min to ensure image fits within canvas
+            
             img.scale(scale);
             const newW = (img.width || 0) * scale;
             const newH = (img.height || 0) * scale;
@@ -654,6 +663,26 @@ export default function Customize() {
     };
   }, [showColorDropdown]);
 
+  // Handle window resize to update canvas size
+  useEffect(() => {
+    const handleResize = () => {
+      if (fabricCanvas && canvasRef.current) {
+        const isMobile = window.innerWidth < 768;
+        const newWidth = isMobile ? 300 : 500;
+        const newHeight = isMobile ? 360 : 600;
+        
+        // Only resize if dimensions actually changed
+        if (fabricCanvas.getWidth() !== newWidth || fabricCanvas.getHeight() !== newHeight) {
+          fabricCanvas.setDimensions({ width: newWidth, height: newHeight });
+          fabricCanvas.renderAll();
+        }
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [fabricCanvas]);
+
   // Step handlers
   const handleCategorySelect = async (category: Category) => {
     setSelectedCategory(category);
@@ -728,9 +757,12 @@ export default function Customize() {
     const url = "/placeholder.svg"; // uses existing public asset
     FabricImage.fromURL(url).then((img) => {
       img.set({ left: 0, top: 0, selectable: false, evented: false, opacity: 0.25 });
-      // cover entire canvas area
-      const canvasW = 500;
-      const canvasH = 600;
+      
+      // Get canvas dimensions dynamically
+      const canvasW = canvas.getWidth();
+      const canvasH = canvas.getHeight();
+      
+      // Scale image to cover entire canvas area
       const scaleX = canvasW / (img.width || canvasW);
       const scaleY = canvasH / (img.height || canvasH);
       const scale = Math.max(scaleX, scaleY);
@@ -752,16 +784,26 @@ export default function Customize() {
         // eslint-disable-next-line no-console
         console.log("[Customize] Base image loaded successfully");
         img.set({ selectable: false, evented: false });
-        // Cover entire canvas area for full width/height
-        const canvasW = 500;
-        const canvasH = 600;
+        
+        // Get canvas dimensions dynamically
+        const canvasW = canvas.getWidth();
+        const canvasH = canvas.getHeight();
+        
+        // Scale image to fit canvas while maintaining aspect ratio
         const scaleX = canvasW / (img.width || canvasW);
         const scaleY = canvasH / (img.height || canvasH);
-        const scale = Math.max(scaleX, scaleY);
+        const scale = Math.min(scaleX, scaleY); // Use min to ensure image fits within canvas
+        
         img.scale(scale);
         const newW = (img.width || 0) * scale;
         const newH = (img.height || 0) * scale;
-        img.set({ left: (canvasW - newW) / 2, top: (canvasH - newH) / 2 });
+        
+        // Center the image on canvas
+        img.set({ 
+          left: (canvasW - newW) / 2, 
+          top: (canvasH - newH) / 2 
+        });
+        
         (img as any).name = "tshirt-base-photo";
         canvas.add(img);
         // keep base above background but below custom elements
@@ -1371,19 +1413,19 @@ export default function Customize() {
               className="max-w-4xl mx-auto"
             >
               <Card>
-                <CardContent className="p-8">
-                  <h2 className="text-2xl font-semibold mb-6 text-center">Select a Category</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <CardContent className="p-4 lg:p-8">
+                  <h2 className="text-xl lg:text-2xl font-semibold mb-4 lg:mb-6 text-center">Select a Category</h2>
+                    <div className="mobile-category-grid">
                     {CATEGORIES.map((category) => (
                       <Button
                         key={category.id}
                         variant="outline"
-                        className="h-32 flex flex-col gap-2"
+                        className="mobile-category-btn"
                         onClick={() => handleCategorySelect(category)}
                         disabled={loading}
                       >
-                        <span className="text-4xl">{category.icon}</span>
-                        <span className="font-medium">{category.name}</span>
+                        <span className="mobile-category-icon">{category.icon}</span>
+                        <span className="mobile-category-text">{category.name}</span>
                       </Button>
                     ))}
                   </div>
@@ -1402,45 +1444,55 @@ export default function Customize() {
               className="max-w-6xl mx-auto"
             >
               <Card>
-                <CardContent className="p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-semibold">
+                <CardContent className="p-4 lg:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 lg:mb-6 gap-4">
+                    <h2 className="text-xl lg:text-2xl font-semibold">
                       {selectedCategory?.name} - Select a Product
                     </h2>
-                    <Button variant="outline" onClick={handleBack}>
+                    <Button variant="outline" onClick={handleBack} className="w-full sm:w-auto">
                       <ArrowLeft className="mr-2 h-4 w-4" />
                       Back
                     </Button>
                   </div>
                   {loading ? (
-                    <div className="text-center py-12">Loading products...</div>
+                    <div className="text-center py-8 lg:py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-muted-foreground">Loading products...</p>
+                    </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="mobile-product-grid">
                       {products.map((product) => (
                         <Card
                           key={product._id}
-                          className="cursor-pointer hover:shadow-lg transition-shadow"
+                          className="mobile-product-card group"
                           onClick={() => handleProductSelect(product)}
                         >
-                          <CardContent className="p-4">
-                            <div className="aspect-square bg-muted rounded-lg mb-4 flex items-center justify-center">
+                          <CardContent className="mobile-product-content">
+                            <div className="mobile-product-image">
                               {product.variants[0]?.images[0] ? (
                                 <img
                                   src={product.variants[0].images[0].url}
                                   alt={product.name}
-                                  className="w-full h-full object-cover rounded-lg"
+                                  className="mobile-product-img group-hover:scale-105"
                                 />
                               ) : (
-                                <span className="text-4xl">👕</span>
+                                <span className="text-3xl lg:text-4xl">👕</span>
                               )}
                             </div>
-                            <h3 className="font-semibold mb-2">{product.name}</h3>
-                            <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                            <h3 className="mobile-product-title">
+                              {product.name}
+                            </h3>
+                            <p className="mobile-product-description">
                               {product.description}
                             </p>
-                            <p className="text-lg font-bold text-primary">
-                              ₹{product.price.toFixed(2)}
-                            </p>
+                            <div className="flex items-center justify-between">
+                              <p className="mobile-product-price">
+                                ₹{product.price.toFixed(2)}
+                              </p>
+                              <div className="mobile-product-sizes">
+                                {product.sizes?.length || 0} sizes
+                              </div>
+                            </div>
                           </CardContent>
                         </Card>
                       ))}
@@ -1461,293 +1513,316 @@ export default function Customize() {
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0 }}
             >
-        <div className="grid gap-8 lg:grid-cols-[400px_1fr_300px]">
-          {/* Left Sidebar - Product Options */}
-          <Card className="h-fit">
-            <CardContent className="p-6 space-y-6">
-              <div>
-                      <Label className="mb-3 block text-base font-semibold">Design Side</Label>
-                      <div className="grid grid-cols-2 gap-2 mb-4">
-                        <Button
-                          variant={designSide === "front" ? "default" : "outline"}
-                          onClick={() => setDesignSide("front")}
-                          className="w-full"
-                        >
-                          Front
-                        </Button>
-                        <Button
-                          variant={designSide === "back" ? "default" : "outline"}
-                          onClick={() => setDesignSide("back")}
-                          className="w-full"
-                        >
-                          Back
-                        </Button>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Front: {frontDesignLayers.length} elements | Back: {backDesignLayers.length} elements
-                </div>
-              </div>
-
-                    <div className="border-t pt-4">
-                <Label className="mb-3 block text-base font-semibold">Size</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {SIZES.map((size) => (
-                    <Button
-                      key={size}
-                      variant={selectedSize === size ? "default" : "outline"}
-                      onClick={() => setSelectedSize(size)}
-                      className="w-full"
-                    >
-                      {size}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <Label className="mb-3 block text-base font-semibold">Product Color</Label>
-                {selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0 && (
-                  <div className="space-y-3">
-                    {/* Color Dropdown Trigger */}
-                    <div className="relative" ref={colorDropdownRef}>
+        {/* Mobile-first responsive layout */}
+        <div className="space-y-4 lg:space-y-0 lg:grid lg:gap-8 lg:grid-cols-[400px_1fr_300px]">
+          {/* Mobile: Top - Product Options */}
+          <div className="lg:order-1">
+            <Card className="h-fit">
+              <CardContent className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+                {/* Design Side & Size - Mobile Optimized */}
+                <div className="space-y-4">
+                  <div>
+                    <Label className="mb-2 block text-sm font-semibold">Design Side</Label>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
                       <Button
-                        variant="outline"
-                        onClick={() => setShowColorDropdown(!showColorDropdown)}
-                        className="w-full h-12 flex items-center justify-between p-3 rounded-lg border bg-primary/10 border-primary/20 hover:bg-primary/20"
+                        variant={designSide === "front" ? "default" : "outline"}
+                        onClick={() => setDesignSide("front")}
+                        className="w-full text-xs sm:text-sm py-2"
                       >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-8 h-8 rounded-full border-2 border-border"
-                            style={{ backgroundColor: selectedProduct.variants.find(v => v.color === selectedColor)?.colorCode || '#ffffff' }}
-                          />
-                          <span className="font-medium">{selectedColor}</span>
-                        </div>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${showColorDropdown ? 'rotate-180' : ''}`} />
+                        Front
                       </Button>
+                      <Button
+                        variant={designSide === "back" ? "default" : "outline"}
+                        onClick={() => setDesignSide("back")}
+                        className="w-full text-xs sm:text-sm py-2"
+                      >
+                        Back
+                      </Button>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Front: {frontDesignLayers.length} | Back: {backDesignLayers.length}
+                    </div>
+                  </div>
 
-                      {/* Color Dropdown Content */}
-                      {showColorDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
-                          <div className="p-4">
-                            <div className="grid grid-cols-10 gap-2">
-                              {selectedProduct.variants.map((variant) => (
-                                <button
-                                  key={variant.color}
-                                  onClick={() => {
-                                    setSelectedColor(variant.color);
-                                    setShowColorDropdown(false);
-                                  }}
-                                  className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
-                                    selectedColor === variant.color 
-                                      ? 'border-primary ring-2 ring-primary/20' 
-                                      : 'border-border hover:border-primary/50'
-                                  }`}
-                                  style={{ backgroundColor: variant.colorCode }}
-                                  title={variant.color}
-                                />
-                              ))}
+                  <div>
+                    <Label className="mb-2 block text-sm font-semibold">Size</Label>
+                    <div className="mobile-size-grid">
+                      {SIZES.map((size) => (
+                        <Button
+                          key={size}
+                          variant={selectedSize === size ? "default" : "outline"}
+                          onClick={() => setSelectedSize(size)}
+                          className="mobile-size-btn"
+                        >
+                          {size}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="mb-2 block text-sm font-semibold">Color</Label>
+                    {selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="relative" ref={colorDropdownRef}>
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowColorDropdown(!showColorDropdown)}
+                            className="w-full h-8 flex items-center justify-between px-2 rounded-md border bg-primary/10 border-primary/20 hover:bg-primary/20"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-4 h-4 rounded-full border border-border"
+                                style={{ backgroundColor: selectedProduct.variants.find(v => v.color === selectedColor)?.colorCode || '#ffffff' }}
+                              />
+                              <span className="font-medium text-xs">{selectedColor}</span>
                             </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+                            <ChevronDown className={`h-3 w-3 transition-transform ${showColorDropdown ? 'rotate-180' : ''}`} />
+                          </Button>
 
-              <div className="border-t pt-4">
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Base Price:</span>
-                    <span className="font-medium">₹{basePrice.toFixed(2)}</span>
-                  </div>
-                  
-                  {frontCustomizationCost > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Front Design:</span>
-                      <span className="font-medium">₹{frontCustomizationCost.toFixed(2)}</span>
-                    </div>
-                  )}
-                  
-                  {backCustomizationCost > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Back Design:</span>
-                      <span className="font-medium">₹{backCustomizationCost.toFixed(2)}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between border-t pt-2 text-lg font-bold">
-                    <span>Total:</span>
-                    <span className="text-primary">₹{totalPrice.toFixed(2)}</span>
+                          {showColorDropdown && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-md shadow-lg z-50 max-h-40 overflow-y-auto">
+                              <div className="p-2">
+                                <div className="mobile-color-grid">
+                                  {selectedProduct.variants.map((variant) => (
+                                    <button
+                                      key={variant.color}
+                                      onClick={() => {
+                                        setSelectedColor(variant.color);
+                                        setShowColorDropdown(false);
+                                      }}
+                                      className={`mobile-color-btn ${
+                                        selectedColor === variant.color 
+                                          ? 'border-primary ring-1 ring-primary/20' 
+                                          : 'border-border hover:border-primary/50'
+                                      }`}
+                                      style={{ backgroundColor: variant.colorCode }}
+                                      title={variant.color}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Pricing - Compact Mobile View */}
+                <div className="border-t pt-3">
+                  <div className="mobile-pricing-compact">
+                    <div className="mobile-pricing-row">
+                      <span className="text-muted-foreground">Base:</span>
+                      <span className="font-medium">₹{basePrice.toFixed(2)}</span>
+                    </div>
+                    
+                    {frontCustomizationCost > 0 && (
+                      <div className="mobile-pricing-row">
+                        <span className="text-muted-foreground">Front:</span>
+                        <span className="font-medium">₹{frontCustomizationCost.toFixed(2)}</span>
+                      </div>
+                    )}
+                    
+                    {backCustomizationCost > 0 && (
+                      <div className="mobile-pricing-row">
+                        <span className="text-muted-foreground">Back:</span>
+                        <span className="font-medium">₹{backCustomizationCost.toFixed(2)}</span>
+                      </div>
+                    )}
+                    
+                    <div className="mobile-pricing-total">
+                      <span>Total:</span>
+                      <span className="text-primary">₹{totalPrice.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Mobile: Center - Canvas */}
+          <div className="lg:order-2">
+            <div className="flex flex-col items-center gap-3">
+              {/* Canvas Container - Mobile Optimized */}
+              <div className="mobile-canvas-container">
+                <div className="mobile-canvas-wrapper">
+                  <canvas 
+                    ref={canvasElRef} 
+                    className="mobile-canvas"
+                    style={{ maxWidth: '100%', height: 'auto' }}
+                  />
+                </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Center - Canvas */}
-          <div className="flex flex-col items-center gap-4">
-            <div className="rounded-lg border bg-muted/30 p-4 shadow-lg">
-                    <canvas ref={canvasElRef} className="max-w-full" />
-            </div>
-
-            <div className="flex flex-wrap gap-2 justify-center">
-              <Button variant="outline" size="sm" onClick={handleRotate}>
-                <RotateCw className="mr-2 h-4 w-4" />
-                Rotate
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleDeleteSelected}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleReset}>
-                Reset Design
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </Button>
-              <Button size="sm" onClick={handleSaveDesign} disabled={savingDesign}>
-                {savingDesign ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Saving...
-                  </>
-                ) : (
-                  "Save"
-                )}
-              </Button>
+              {/* Canvas Controls - Mobile Optimized */}
+              <div className="mobile-controls">
+                <Button variant="outline" size="sm" onClick={handleRotate} className="mobile-control-btn">
+                  <RotateCw className="mr-1 h-3 w-3" />
+                  <span className="hidden xs:inline">Rotate</span>
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDeleteSelected} className="mobile-control-btn">
+                  <Trash2 className="mr-1 h-3 w-3" />
+                  <span className="hidden xs:inline">Delete</span>
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleReset} className="mobile-control-btn">
+                  <span className="hidden xs:inline">Reset</span>
+                  <span className="xs:hidden">Clear</span>
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDownload} className="mobile-control-btn">
+                  <Download className="mr-1 h-3 w-3" />
+                  <span className="hidden xs:inline">Save</span>
+                </Button>
+                <Button size="sm" onClick={handleSaveDesign} disabled={savingDesign} className="mobile-control-btn">
+                  {savingDesign ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                      <span className="hidden xs:inline">Saving</span>
+                    </>
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* Right Sidebar - Customization Tools */}
-          <Card className="h-fit">
-            <CardContent className="p-6">
-              <Tabs defaultValue="text" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="text">
-                    <Type className="mr-2 h-4 w-4" />
-                    Text
-                  </TabsTrigger>
-                  <TabsTrigger value="image">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Image
-                  </TabsTrigger>
-                </TabsList>
+          {/* Mobile: Bottom - Design Tools */}
+          <div className="lg:order-3">
+            <Card className="h-fit">
+              <CardContent className="p-4 lg:p-6">
+                <Tabs defaultValue="text" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 h-8">
+                    <TabsTrigger value="text" className="text-xs">
+                      <Type className="mr-1 h-3 w-3" />
+                      <span className="hidden sm:inline">Text</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="image" className="text-xs">
+                      <Upload className="mr-1 h-3 w-3" />
+                      <span className="hidden sm:inline">Image</span>
+                    </TabsTrigger>
+                  </TabsList>
 
-                <TabsContent value="text" className="space-y-4 pt-4">
-                  <div>
-                    <Label className="mb-2 block">Your Text</Label>
-                    <Input
-                      value={textInput}
-                      onChange={(e) => setTextInput(e.target.value)}
-                      placeholder="Type here..."
-                      className="mb-4"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleAddText();
-                      }}
-                    />
-                    <Label className="mb-2 block">Font</Label>
-                    <select
-                      value={selectedFont}
-                      onChange={(e) => setSelectedFont(e.target.value)}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2"
-                    >
-                      {FONTS.map((font) => (
-                        <option key={font} value={font}>
-                          {font}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label className="mb-2 block">Font Size: {fontSize}px</Label>
-                    <Slider
-                      value={[fontSize]}
-                      onValueChange={(value) => setFontSize(value[0])}
-                      min={20}
-                      max={100}
-                      step={5}
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="mb-2 block">Text Color</Label>
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => setShowColorPicker(!showColorPicker)}
-                        className="h-10 w-full rounded-md border-2 border-border"
-                        style={{ backgroundColor: textColor }}
+                  <TabsContent value="text" className="mobile-form-compact pt-3">
+                    <div>
+                      <Label className="mobile-form-field">Your Text</Label>
+                      <Input
+                        value={textInput}
+                        onChange={(e) => setTextInput(e.target.value)}
+                        placeholder="Type here..."
+                        className="mobile-form-input"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleAddText();
+                        }}
                       />
-                      {showColorPicker && (
-                        <div className="rounded-lg border p-3">
-                          <HexColorPicker color={textColor} onChange={setTextColor} />
-                        </div>
-                      )}
                     </div>
-                  </div>
 
-                  <Button onClick={handleAddText} className="w-full">
-                    <Type className="mr-2 h-4 w-4" />
-                    {fabricCanvas?.getActiveObject() && (fabricCanvas.getActiveObject() as any).name === "custom-text" ? "Update Text" : "Add Text"}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="mobile-form-field">Font</Label>
+                        <select
+                          value={selectedFont}
+                          onChange={(e) => setSelectedFont(e.target.value)}
+                          className="mobile-form-select"
+                        >
+                          {FONTS.map((font) => (
+                            <option key={font} value={font}>
+                              {font}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <Label className="mobile-form-field">Size: {fontSize}px</Label>
+                        <Slider
+                          value={[fontSize]}
+                          onValueChange={(value) => setFontSize(value[0])}
+                          min={20}
+                          max={100}
+                          step={5}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="mobile-form-field">Color</Label>
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setShowColorPicker(!showColorPicker)}
+                          className="mobile-color-picker"
+                          style={{ backgroundColor: textColor }}
+                        />
+                        {showColorPicker && (
+                          <div className="rounded-md border p-2">
+                            <HexColorPicker color={textColor} onChange={setTextColor} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <Button onClick={handleAddText} className="w-full text-xs h-8">
+                      <Type className="mr-1 h-3 w-3" />
+                      {fabricCanvas?.getActiveObject() && (fabricCanvas.getActiveObject() as any).name === "custom-text" ? "Update Text" : "Add Text"}
+                    </Button>
+                  </TabsContent>
+
+                  <TabsContent value="image" className="mobile-form-compact pt-3">
+                    <div>
+                      <Label className="mobile-form-field">Upload Image</Label>
+                      <div className="mobile-upload-area">
+                        <Upload className="mobile-upload-icon" />
+                        <p className="mobile-upload-text">
+                          Upload your logo or design
+                        </p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          id="image-upload"
+                        />
+                        <label htmlFor="image-upload">
+                          <Button variant="outline" size="sm" asChild className="mobile-upload-btn">
+                            <span>Choose File</span>
+                          </Button>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="rounded-md bg-blue-50 border border-blue-200 p-2 text-xs">
+                      <p className="font-medium text-blue-800">💡 Pro Tip:</p>
+                      <p className="mt-1 text-blue-700">PNG images work best with transparent backgrounds.</p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+
+                <div className="mt-4 space-y-2 border-t pt-3">
+                  <Button 
+                    onClick={handleAddToCart} 
+                    className="w-full gradient-hero shadow-primary text-xs h-8"
+                    disabled={addingToCart}
+                  >
+                    {addingToCart ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="mr-1 h-3 w-3" />
+                        Add to Cart
+                      </>
+                    )}
                   </Button>
-                </TabsContent>
-
-                <TabsContent value="image" className="space-y-4 pt-4">
-                  <div>
-                    <Label className="mb-2 block">Upload Image</Label>
-                    <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
-                      <Upload className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-                      <p className="mb-2 text-sm text-muted-foreground">
-                        Click to upload your logo or design
-                      </p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        id="image-upload"
-                      />
-                      <label htmlFor="image-upload">
-                        <Button variant="outline" size="sm" asChild>
-                          <span>Choose File</span>
-                        </Button>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm">
-                    <p className="font-medium text-blue-800">💡 Pro Tip:</p>
-                    <p className="mt-1 text-blue-700">PNG images give you the best results with transparent backgrounds and high quality.</p>
-                  </div>
-                </TabsContent>
-              </Tabs>
-
-              <div className="mt-6 space-y-3 border-t pt-6">
-                <Button 
-                  onClick={handleAddToCart} 
-                  className="w-full gradient-hero shadow-primary"
-                  disabled={addingToCart}
-                >
-                  {addingToCart ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Adding to Cart...
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="mr-2 h-4 w-4" />
-                      Add to Cart
-                    </>
-                  )}
-                </Button>
-                <p className="text-center text-xs text-muted-foreground">
-                  Free shipping on orders over $50
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                  <p className="text-center text-xs text-muted-foreground">
+                    Free shipping on orders over $50
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
             </motion.div>
           )}

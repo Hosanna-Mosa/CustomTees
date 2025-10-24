@@ -154,4 +154,179 @@ All colors MUST be HSL.
   .hover-lift {
     @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-lg;
   }
+  
+  /* Mobile-specific utilities */
+  .mobile-padding {
+    @apply px-4 py-2 sm:px-6 sm:py-3;
+  }
+  
+  .mobile-text {
+    @apply text-sm sm:text-base;
+  }
+  
+  .mobile-heading {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+  
+  .mobile-button {
+    @apply text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2;
+  }
+  
+  .mobile-card {
+    @apply p-4 sm:p-6;
+  }
+  
+  .mobile-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6;
+  }
+  
+  .mobile-flex-col {
+    @apply flex flex-col sm:flex-row;
+  }
+  
+  .mobile-center {
+    @apply text-center sm:text-left;
+  }
+  
+  .mobile-stack {
+    @apply space-y-4 sm:space-y-0 sm:space-x-4 sm:flex sm:items-center;
+  }
+  
+  /* Mobile customization specific utilities */
+  .mobile-canvas-container {
+    @apply w-full max-w-sm mx-auto;
+  }
+  
+  .mobile-canvas-wrapper {
+    @apply relative rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/20 p-2 overflow-hidden;
+  }
+  
+  .mobile-canvas {
+    @apply w-full h-auto max-w-full block mx-auto;
+  }
+  
+  .mobile-controls {
+    @apply flex flex-wrap gap-1 justify-center w-full max-w-sm;
+  }
+  
+  .mobile-control-btn {
+    @apply text-xs px-2 py-1 h-8;
+  }
+  
+  .mobile-form-compact {
+    @apply space-y-3;
+  }
+  
+  .mobile-form-field {
+    @apply mb-1 block text-xs font-medium;
+  }
+  
+  .mobile-form-input {
+    @apply text-sm h-8;
+  }
+  
+  .mobile-form-select {
+    @apply w-full rounded-md border border-input bg-background px-2 py-1 text-xs h-8;
+  }
+  
+  .mobile-color-picker {
+    @apply h-6 w-full rounded-md border-2 border-border;
+  }
+  
+  .mobile-upload-area {
+    @apply rounded-md border-2 border-dashed border-border p-3 text-center;
+  }
+  
+  .mobile-upload-icon {
+    @apply mx-auto mb-1 h-4 w-4 text-muted-foreground;
+  }
+  
+  .mobile-upload-text {
+    @apply mb-1 text-xs text-muted-foreground;
+  }
+  
+  .mobile-upload-btn {
+    @apply text-xs h-6;
+  }
+  
+  .mobile-pricing-compact {
+    @apply space-y-1;
+  }
+  
+  .mobile-pricing-row {
+    @apply flex justify-between text-xs;
+  }
+  
+  .mobile-pricing-total {
+    @apply flex justify-between border-t pt-1 text-sm font-bold;
+  }
+  
+  .mobile-size-grid {
+    @apply grid grid-cols-6 gap-1;
+  }
+  
+  .mobile-size-btn {
+    @apply w-full text-xs py-1 px-2;
+  }
+  
+  .mobile-color-grid {
+    @apply grid grid-cols-6 gap-1;
+  }
+  
+  .mobile-color-btn {
+    @apply w-6 h-6 rounded-full border-2 transition-all hover:scale-110;
+  }
+  
+  /* Product display mobile utilities */
+  .mobile-product-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6;
+  }
+  
+  .mobile-product-card {
+    @apply cursor-pointer hover:shadow-lg transition-shadow;
+  }
+  
+  .mobile-product-content {
+    @apply p-3 lg:p-4;
+  }
+  
+  .mobile-product-image {
+    @apply aspect-square bg-muted rounded-lg mb-3 lg:mb-4 flex items-center justify-center overflow-hidden;
+  }
+  
+  .mobile-product-img {
+    @apply w-full h-full object-cover rounded-lg transition-transform duration-200;
+  }
+  
+  .mobile-product-title {
+    @apply font-semibold mb-2 text-sm lg:text-base line-clamp-1;
+  }
+  
+  .mobile-product-description {
+    @apply text-xs lg:text-sm text-muted-foreground mb-2 line-clamp-2;
+  }
+  
+  .mobile-product-price {
+    @apply text-base lg:text-lg font-bold text-primary;
+  }
+  
+  .mobile-product-sizes {
+    @apply text-xs text-muted-foreground;
+  }
+  
+  .mobile-category-grid {
+    @apply grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4;
+  }
+  
+  .mobile-category-btn {
+    @apply h-24 lg:h-32 flex flex-col gap-2 hover:bg-primary hover:text-primary-foreground transition-colors;
+  }
+  
+  .mobile-category-icon {
+    @apply text-2xl lg:text-4xl;
+  }
+  
+  .mobile-category-text {
+    @apply font-medium text-xs lg:text-sm;
+  }
 }
