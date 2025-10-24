@@ -5,6 +5,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import connectDB from './src/config/db.js';
+import { configureCloudinary } from './src/services/cloudinary.service.js';
 import authRoutes from './src/routes/auth.routes.js';
 import productRoutes from './src/routes/product.routes.js';
 import adminRoutes from './src/routes/admin.routes.js';
@@ -16,6 +17,9 @@ const app = express();
 
 // DB
 connectDB();
+
+// Cloudinary
+configureCloudinary();
 
 // Middlewares
 app.use(cors({

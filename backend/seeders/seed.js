@@ -2,49 +2,282 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import slugify from 'slugify';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import connectDB from '../src/config/db.js';
 import Product from '../src/models/Product.js';
 import User from '../src/models/User.js';
 import { hashPassword } from '../src/services/auth.service.js';
-import { configureCloudinary } from '../src/services/cloudinary.service.js';
+import { configureCloudinary, uploadImage } from '../src/services/cloudinary.service.js';
 
 dotenv.config();
 await connectDB();
 configureCloudinary();
 
-const PLACEHOLDER = (i) => ({ 
-  url: `https://picsum.photos/400/400?random=${i}`, 
-  public_id: `placeholder/sample_${i}` 
+// Get current directory for file paths
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/**
+ * T-shirt Image File Structure:
+ * The T-shirts folder should contain images with the following naming convention:
+ * - T-shirt-White-front.jpg
+ * - T-shirt-White-back.jpg
+ * - T-shirt-Black-front.jpg
+ * - T-shirt-Black-back.jpg
+ * - T-shirt-Navy-front.jpg
+ * - T-shirt-Navy-back.jpg
+ * etc.
+ * 
+ * Supported file extensions: .jpg, .jpeg, .png, .webp
+ */
+
+// Helper function to upload T-shirt image to Cloudinary
+const uploadTShirtImage = async (colorName, type = 'general') => {
+  const basePath = path.join(__dirname, 'T-shirts');
+  const fileName = `t-shirt-${colorName}-${type}`;
+  const extensions = ['.jpg', '.jpeg', '.png', '.webp'];
+  
+  // Try to find the image file with different extensions
+  let imagePath = null;
+  for (const ext of extensions) {
+    const fullPath = path.join(basePath, `${fileName}${ext}`);
+    if (fs.existsSync(fullPath)) {
+      imagePath = fullPath;
+      break;
+    }
+  }
+  
+  if (!imagePath) {
+    console.warn(`⚠️  Image not found: ${fileName} (tried extensions: ${extensions.join(', ')})`);
+    // Return a placeholder if image doesn't exist
+    return {
+      url: `https://via.placeholder.com/400x400/cccccc/666666?text=${colorName}+${type}`,
+      public_id: `tshirts/${colorName}_${type}_placeholder`
+    };
+  }
+  
+  try {
+    console.log(`☁️  Uploading ${fileName} to Cloudinary...`);
+    const result = await uploadImage(imagePath);
+    console.log(`✅ Uploaded ${fileName} successfully`);
+    return result;
+  } catch (error) {
+    console.error(`❌ Failed to upload ${fileName}:`, error.message);
+    // Return placeholder on upload failure
+    return {
+      url: `https://via.placeholder.com/400x400/cccccc/666666?text=${colorName}+${type}`,
+      public_id: `tshirts/${colorName}_${type}_error`
+    };
+  }
+};
+
+// Helper function to create color variants with uploaded T-shirt images
+const createVariant = async (color, colorCode) => {
+  const colorName = color.replace(/\s+/g, ''); // Remove spaces for filename
+  
+  // Upload front and back images to Cloudinary
+  const frontImage = await uploadTShirtImage(colorName, 'front');
+  const backImage = await uploadTShirtImage(colorName, 'back');
+  
+  return {
+    color,
+    colorCode,
+    images: [frontImage, backImage],
+    frontImages: [frontImage],
+    backImages: [backImage]
+  };
+};
+
+// Helper function to upload logo and preview images
+const uploadLogoImage = async () => {
+  const logoPath = path.join(__dirname, 'T-shirts', 'logo.png');
+  if (fs.existsSync(logoPath)) {
+    try {
+      console.log('☁️  Uploading logo to Cloudinary...');
+      const result = await uploadImage(logoPath);
+      console.log('✅ Logo uploaded successfully');
+      return result.url;
+    } catch (error) {
+      console.error('❌ Failed to upload logo:', error.message);
+      return 'https://via.placeholder.com/100x100/cccccc/666666?text=LOGO';
+    }
+  }
+  console.warn('⚠️  Logo file not found, using placeholder');
+  return 'https://via.placeholder.com/100x100/cccccc/666666?text=LOGO';
+};
+
+const uploadPreviewImage = async () => {
+  const previewPath = path.join(__dirname, 't-shirts', 'preview-tshirt.jpg');
+  if (fs.existsSync(previewPath)) {
+    try {
+      console.log('☁️  Uploading preview image to Cloudinary...');
+      const result = await uploadImage(previewPath);
+      console.log('✅ Preview image uploaded successfully');
+      return result.url;
+    } catch (error) {
+      console.error('❌ Failed to upload preview image:', error.message);
+      return 'https://via.placeholder.com/500x500/cccccc/666666?text=PREVIEW';
+    }
+  }
+  console.warn('⚠️  Preview file not found, using placeholder');
+  return 'https://via.placeholder.com/500x500/cccccc/666666?text=PREVIEW';
+};
+
+// Function to log expected image files for verification
+const logExpectedImages = (variants) => {
+  console.log('\n📁 Expected T-shirt image files:');
+  variants.forEach(variant => {
+    const colorName = variant.color.replace(/\s+/g, '');
+    console.log(`  - T-shirt-${colorName}-front.jpg`);
+    console.log(`  - T-shirt-${colorName}-back.jpg`);
+  });
+  console.log('  - logo.png (for design templates)');
+  console.log('  - preview-tshirt.jpg (for design previews)\n');
+};
+
+// Helper function to create design layers
+const createTextLayer = (content, x, y, options = {}) => ({
+  layerType: 'text',
+  position: { x, y },
+  rotation: options.rotation || 0,
+  scale: options.scale || 1,
+  zIndex: options.zIndex || 0,
+  properties: {
+    content,
+    fontFamily: options.fontFamily || 'Arial',
+    fontSize: options.fontSize || 24,
+    fontWeight: options.fontWeight || 'normal',
+    color: options.color || '#000000',
+    textAlign: options.textAlign || 'center',
+    cost: options.cost || 0
+  }
 });
 
-const base = [
-  { name: 'Classic T-Shirt', description: 'Soft cotton tee', price: 599, stock: 100 },
-  { name: 'Premium Hoodie', description: 'Warm and comfy', price: 2499, stock: 50 },
-  { name: 'Polo Shirt', description: 'Smart casual polo', price: 1299, stock: 70 },
-  { name: 'Baseball Cap', description: 'Adjustable cap', price: 799, stock: 200 },
-  { name: 'Crewneck Sweatshirt', description: 'Everyday comfort', price: 1999, stock: 60 },
-  { name: 'Snapback Hat', description: 'Stylish snapback cap', price: 899, stock: 150 },
-];
+const createImageLayer = (imageUrl, x, y, options = {}) => ({
+  layerType: 'image',
+  position: { x, y },
+  rotation: options.rotation || 0,
+  scale: options.scale || 1,
+  zIndex: options.zIndex || 0,
+  properties: {
+    imageUrl,
+    opacity: options.opacity || 1,
+    cost: options.cost || 20
+  }
+});
+
+// Function to create sample products with uploaded images
+const createSampleProducts = async () => {
+  console.log('🎨 Creating sample products with Cloudinary uploads...');
+  
+  // Upload logo and preview images first
+  const logoUrl = await uploadLogoImage();
+  const previewUrl = await uploadPreviewImage();
+  
+  // Create variants with uploaded images
+  const variants = await Promise.all([
+    
+    createVariant('red', '#DC2626'),
+    createVariant('sport-grey', '#6B7280'),
+    createVariant('stone-blue', '#2563EB'),
+    createVariant('safety-green', '#16A34A'),
+
+  ]);
+  
+  return [
+    {
+      name: 'Classic Cotton T-Shirt',
+      description: 'Soft, comfortable 100% cotton t-shirt perfect for everyday wear. Pre-shrunk and machine washable.',
+      price: 2499, // $24.99
+      sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+      stock: 100,
+      customizable: true,
+      customizationType: 'both',
+      variants,
+      designTemplate: {
+        type: 'predefined',
+        layers: [
+          createTextLayer('CUSTOM TEE', 250, 200, { 
+            fontSize: 32, 
+            fontWeight: 'bold', 
+            color: '#000000',
+            zIndex: 1 
+          }),
+          createImageLayer(logoUrl, 250, 250, {
+            scale: 0.8,
+            zIndex: 2
+          })
+        ],
+        canvasSize: { width: 500, height: 500 },
+        previewUrl,
+        totalCost: 20
+      },
+      customizationPricing: {
+        perTextLayer: 5,
+        perImageLayer: 15,
+        sizeMultiplier: 0.1
+      }
+    }
+  ];
+};
 
 try {
-  await Promise.all([Product.deleteMany({}), User.deleteMany({ role: 'admin' })]);
-  const docs = [];
-  for (let i = 0; i < base.length; i++) {
-    const p = base[i];
-    const slug = slugify(p.name, { lower: true });
-    const images = [PLACEHOLDER(i + 1)];
-    docs.push({ ...p, slug, images });
+  // Clear existing data
+  await Promise.all([
+    Product.deleteMany({}), 
+    User.deleteMany({ role: 'admin' })
+  ]);
+  
+  console.log('🗑️  Cleared existing data...');
+  
+  // Create sample products with uploaded images
+  const sampleProducts = await createSampleProducts();
+  
+  // Log expected image files for the first product (T-shirt)
+  if (sampleProducts.length > 0) {
+    logExpectedImages(sampleProducts[0].variants);
   }
-  // await Product.insertMany(docs);
-  console.log('Seeded 5 products');
-  // Admin user
-  const adminEmail = process.env.ADMIN_EMAIL || 'sunandvemavarapu@gmail.com';
+  
+  // Create products with slugs
+  const products = [];
+  for (const productData of sampleProducts) {
+    const slug = slugify(productData.name, { lower: true });
+    products.push({ ...productData, slug });
+  }
+  
+  // Insert products
+  const createdProducts = await Product.insertMany(products);
+  console.log(`✅ Seeded ${createdProducts.length} products with Cloudinary images`);
+  
+  // Create admin user
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@customtees.com';
   const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
   const hashed = await hashPassword(adminPass);
-  await User.create({ name: 'Admin', email: adminEmail, password: hashed, role: 'admin' });
-  console.log(`Admin user created: ${adminEmail} / ${adminPass}`);
-} catch (e) {
-  console.error(e);
+  
+  await User.create({ 
+    name: 'Admin User', 
+    email: adminEmail, 
+    password: hashed, 
+    role: 'admin' 
+  });
+  
+  console.log(`👤 Admin user created: ${adminEmail} / ${adminPass}`);
+  
+  // Display summary
+  console.log('\n📊 Seeding Summary:');
+  console.log(`- Products: ${createdProducts.length}`);
+  console.log(`- Total variants: ${createdProducts.reduce((sum, p) => sum + p.variants.length, 0)}`);
+  console.log(`- Total images uploaded to Cloudinary: ${createdProducts.reduce((sum, p) => sum + p.variants.reduce((vSum, v) => vSum + v.images.length, 0), 0)}`);
+  console.log(`- Customizable products: ${createdProducts.filter(p => p.customizable).length}`);
+  console.log(`- Admin user: ${adminEmail}`);
+  console.log('☁️  All images have been uploaded to Cloudinary and URLs stored in database');
+  
+} catch (error) {
+  console.error('❌ Seeding failed:', error);
+  process.exit(1);
 }
 
 await mongoose.disconnect();
+console.log('🔌 Database connection closed');

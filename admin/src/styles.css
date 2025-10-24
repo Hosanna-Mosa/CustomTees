@@ -164,6 +164,13 @@ h2 {
   background: var(--panel);
 }
 
+.table tbody tr[style*="cursor: pointer"]:hover {
+  background: var(--panel);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
 .table tbody tr:last-child td {
   border-bottom: none;
 }
@@ -622,8 +629,8 @@ select:disabled {
 .modal {
   background: var(--bg);
   border-radius: 12px;
-  width: 90%;
-  max-width: 600px;
+  width: 95%;
+  max-width: 1000px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
@@ -763,5 +770,513 @@ textarea:focus {
   
   .form-actions {
     flex-direction: column;
+  }
+}
+
+/* Variant Management Styles */
+.variant-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.variants-btn {
+  background: var(--primary);
+  border: none;
+  border-radius: 6px;
+  color: var(--bg);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.variants-btn:hover {
+  background: var(--primary-600);
+}
+
+.variants-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.variants-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.variants-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.add-variant-btn {
+  background: var(--primary);
+  border: none;
+  border-radius: 6px;
+  color: var(--bg);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.add-variant-btn:hover {
+  background: var(--primary-600);
+}
+
+.variants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.variant-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: box-shadow 0.2s ease;
+}
+
+.variant-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.variant-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+}
+
+.variant-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.variant-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.variant-code {
+  color: var(--muted);
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.variant-images {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.image-count {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.total-images {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.variant-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.edit-variant-btn, .delete-variant-btn {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.edit-variant-btn:hover {
+  background: var(--panel);
+}
+
+.delete-variant-btn:hover {
+  background: #f8d7da;
+}
+
+.no-variants {
+  text-align: center;
+  padding: 20px;
+  color: var(--muted);
+}
+
+.no-variants p {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+}
+
+.variant-form {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.selected-images {
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--panel);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Drag and Drop Styles */
+.image-upload-section {
+  margin-top: 20px;
+}
+
+.image-upload-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.image-upload-area {
+  margin-bottom: 20px;
+}
+
+.image-upload-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.drag-drop-area {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  background: var(--panel);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.drag-drop-area:hover {
+  border-color: var(--primary);
+  background: var(--bg);
+}
+
+.drag-drop-area.drag-over {
+  border-color: var(--primary);
+  background: rgba(0, 0, 0, 0.05);
+  transform: scale(1.02);
+}
+
+.drag-drop-content {
+  pointer-events: none;
+}
+
+.file-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.upload-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.drag-drop-area p {
+  margin: 4px 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.upload-hint {
+  color: var(--muted) !important;
+  font-size: 12px !important;
+}
+
+.image-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.image-preview-item {
+  position: relative;
+  background: var(--bg);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.preview-thumbnail {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  display: block;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.remove-image-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.image-name {
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  word-break: break-all;
+  line-height: 1.2;
+}
+
+/* Loading Spinner Animation */
+.loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.primary:disabled .loading-spinner {
+  border-top-color: #666666;
+}
+
+/* Order Details Design Preview Styles */
+.design-preview-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: box-shadow 0.3s ease;
+}
+
+.design-preview-card:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.design-preview-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.design-preview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.design-preview-item {
+  position: relative;
+}
+
+.design-preview-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 2;
+}
+
+.design-preview-container {
+  position: relative;
+  background: var(--panel);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.design-preview-container:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.design-preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: opacity 0.3s ease;
+}
+
+.design-preview-container:hover .design-preview-image {
+  opacity: 0.8;
+}
+
+.zoom-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.design-preview-container:hover .zoom-overlay {
+  opacity: 1;
+}
+
+.zoom-icon {
+  font-size: 24px;
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 12px;
+  border-radius: 50%;
+  backdrop-filter: blur(10px);
+}
+
+/* Image Zoom Modal Styles */
+.image-zoom-modal {
+  position: relative;
+  background: var(--bg);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.zoomed-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsive for Variants */
+@media (max-width: 768px) {
+  .variant-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .variants-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+  
+  .variant-item {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .variant-actions {
+    justify-content: flex-end;
+  }
+  
+  .image-preview-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+  }
+  
+  .drag-drop-area {
+    padding: 16px;
+  }
+  
+  .upload-icon {
+    font-size: 24px;
+  }
+
+  /* Responsive Design Preview */
+  .design-preview-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .design-preview-card {
+    padding: 16px;
+  }
+  
+  .image-zoom-modal {
+    width: 95%;
+    padding: 15px;
+  }
+  
+  .modal {
+    width: 98%;
+    max-width: none;
   }
 }

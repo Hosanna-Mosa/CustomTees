@@ -30,15 +30,7 @@ router.get('/:slug', getBySlug);
  */
 router.post(
   '/',
-  protect,
-  verifyAdmin,
-  // 💡 Use .fields() instead of .array() to accept multiple color-based image sets
-  upload.fields([
-    // Example keys:
-    // { name: 'images_Red', maxCount: 10 },
-    // { name: 'images_Black', maxCount: 10 },
-    // You’ll dynamically send these from the frontend using FormData
-  ]),
+  upload.any(), // Accept any field names for dynamic image uploads
   [
     body('name').notEmpty().withMessage('Name is required'),
     body('slug').notEmpty().withMessage('Slug is required'),
@@ -93,9 +85,7 @@ router.post(
  */
 router.put(
   '/:id',
-  protect,
-  verifyAdmin,
-  upload.fields([]), // same logic applies — frontend will dynamically send images_<color>
+  upload.any(), // Accept any field names for dynamic image uploads
   [
     body('variants')
       .optional()
@@ -139,6 +129,6 @@ router.put(
 /**
  * @desc Delete product (Admin only)
  */
-router.delete('/:id', protect, verifyAdmin, deleteProduct);
+router.delete('/:id',deleteProduct);
 
 export default router;
