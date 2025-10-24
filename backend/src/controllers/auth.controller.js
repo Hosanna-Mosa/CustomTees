@@ -51,6 +51,16 @@ export const updateProfile = async (req, res) => {
 export const saveDesign = async (req, res) => {
   try {
     const body = req.body || {};
+    console.log('Saving design with data:', {
+      name: body.name,
+      hasFrontDesign: !!body.frontDesign,
+      hasBackDesign: !!body.backDesign,
+      frontPreviewImage: body.frontDesign?.previewImage ? 'Yes' : 'No',
+      backPreviewImage: body.backDesign?.previewImage ? 'Yes' : 'No',
+      frontLayers: body.frontDesign?.designLayers?.length || 0,
+      backLayers: body.backDesign?.designLayers?.length || 0
+    });
+    
     let design;
     if (body._id) {
       design = await Design.findOneAndUpdate(
@@ -65,8 +75,19 @@ export const saveDesign = async (req, res) => {
       req.user.designs.push(design._id);
       await req.user.save();
     }
+    
+    console.log('Design saved successfully:', {
+      id: design._id,
+      name: design.name,
+      hasFrontDesign: !!design.frontDesign,
+      hasBackDesign: !!design.backDesign,
+      frontPreviewImage: design.frontDesign?.previewImage ? 'Yes' : 'No',
+      backPreviewImage: design.backDesign?.previewImage ? 'Yes' : 'No'
+    });
+    
     res.status(201).json({ success: true, data: design });
   } catch (e) {
+    console.error('Error saving design:', e);
     res.status(500).json({ success: false, message: 'Failed to save design' });
   }
 };

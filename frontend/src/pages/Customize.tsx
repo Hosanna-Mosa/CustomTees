@@ -1205,8 +1205,8 @@ export default function Customize() {
               }
             }
           }
-          
-          // Add design layers for this side
+          // Add design layers for this side - wait for all images to load
+          const imagePromises = [];
           targetLayers.forEach((layer) => {
             if (layer.type === "text") {
               const text = new FabricText(layer.data.content || "", {
@@ -1223,7 +1223,7 @@ export default function Customize() {
               (text as any).layerId = layer.id;
               tempFabricCanvas.add(text);
             } else if (layer.type === "image" && layer.data.url) {
-              FabricImage.fromURL(layer.data.url).then((img) => {
+              const imagePromise = FabricImage.fromURL(layer.data.url).then((img) => {
                 img.set({
                   left: layer.data.x,
                   top: layer.data.y,
@@ -1234,12 +1234,19 @@ export default function Customize() {
                 (img as any).name = "custom-image";
                 (img as any).layerId = layer.id;
                 tempFabricCanvas.add(img);
-                tempFabricCanvas.renderAll();
+                return img;
               });
+              imagePromises.push(imagePromise);
             }
           });
           
+          // Wait for all images to load before generating preview
+          await Promise.all(imagePromises);
           tempFabricCanvas.renderAll();
+          
+          // Wait a bit more to ensure all rendering is complete
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
           const previewImage = tempFabricCanvas.toDataURL({ format: "png", quality: 1, multiplier: 2 });
           
           // Clean up temporary canvas
