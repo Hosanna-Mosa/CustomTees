@@ -82,7 +82,7 @@ export const api = {
   }),
 
   // Designs
-  getDesigns: () => request<{ success: boolean; data: any[] }>(`/admin/designs`),
+  getDesigns: (page: number = 1) => request<{ success: boolean; data: any[]; pagination: any }>(`/admin/designs?page=${page}`),
 }
 
 export default api
