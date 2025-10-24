@@ -8,6 +8,7 @@ import { Products } from './pages/Products'
 import { Orders } from './pages/Orders'
 import { Users } from './pages/Users'
 import { Settings } from './pages/Settings'
+import { Designs } from './pages/Designs'
 import { AdminLayout } from './components/AdminLayout'
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="products" element={<Products />} />
           <Route path="orders" element={<Orders />} />
           <Route path="users" element={<Users />} />
+          <Route path="designs" element={<Designs />} />
           <Route path="settings" element={<Settings />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
