@@ -84,6 +84,19 @@ export const listOrders = async (_req, res) => {
   res.json({ success: true, data: orders });
 };
 
+export const getOrderById = async (req, res) => {
+  const { id } = req.params;
+  const order = await Order.findById(id)
+    .populate('user', 'name email phone')
+    .populate('items.product', 'name slug price variants');
+  
+  if (!order) {
+    return res.status(404).json({ success: false, message: 'Order not found' });
+  }
+  
+  res.json({ success: true, data: order });
+};
+
 export const updateStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;

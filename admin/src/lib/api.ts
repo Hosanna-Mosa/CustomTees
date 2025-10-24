@@ -61,8 +61,9 @@ export const api = {
   getUsers: () => request<{ success: boolean; data: any[] }>(`/admin/users`),
   getStats: () => request<{ success: boolean; data: { users: number; products: number; orders: number } }>(`/admin/stats`),
   getOrders: () => request<{ success: boolean; data: any[] }>(`/admin/orders`),
+  getOrderById: (id: string) => request<{ success: boolean; data: any }>(`/orders/${id}`),
   updateOrderStatus: (id: string, status: string) => 
-    request<{ success: boolean; data: any }>(`/orders/${id}/status`, {
+    request<{ success: boolean; data: any }>(`/admin/orders/${id}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
     }),

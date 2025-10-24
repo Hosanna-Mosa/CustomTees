@@ -67,7 +67,9 @@ const variantSchema = new mongoose.Schema(
   {
     color: { type: String, required: true }, // example: "Red"
     colorCode: { type: String },             // example: "#FF0000" (for UI color picker)
-    images: { type: [imageSchema], validate: (v) => v.length > 0 }, // mockups for that color
+    images: { type: [imageSchema], default: [] }, // mockups for that color
+    frontImages: { type: [imageSchema], default: [] }, // front-specific images
+    backImages: { type: [imageSchema], default: [] },   // back-specific images
   },
   { _id: false }
 );
