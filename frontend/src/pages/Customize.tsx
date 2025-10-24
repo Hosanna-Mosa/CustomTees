@@ -1156,6 +1156,104 @@ export default function Customize() {
 
       const currentDesignData = fabricCanvas.toJSON();
       const currentPreviewImage = fabricCanvas.toDataURL({ format: "png", quality: 1, multiplier: 2 });
+      
+      // Generate preview images for both front and back designs
+      const generatePreviewForSide = async (side: "front" | "back") => {
+        if (side === designSide) {
+          // If we're currently on this side, use the current canvas
+          return currentPreviewImage;
+        } else {
+          // If we're not on this side, we need to temporarily switch and generate preview
+          const targetLayers = side === "front" ? updatedFrontLayers : updatedBackLayers;
+          
+          // Create a temporary canvas to generate preview
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = 500;
+          tempCanvas.height = 600;
+          const tempFabricCanvas = new FabricCanvas(tempCanvas, {
+            width: 500,
+            height: 600,
+            backgroundColor: "transparent",
+          });
+          
+          // Add base product image for this side
+          if (selectedProduct && selectedColor) {
+            const variant = selectedProduct.variants.find((v) => v.color === selectedColor);
+            const imgUrl = variant ? pickVariantImageForSide(variant, side) : undefined;
+            if (imgUrl) {
+              try {
+                const img = await FabricImage.fromURL(imgUrl, { crossOrigin: "anonymous" });
+                img.set({ selectable: false, evented: false });
+                
+                // Scale and position the image
+                const canvasW = 500;
+                const canvasH = 600;
+                const scaleX = canvasW / (img.width || canvasW);
+                const scaleY = canvasH / (img.height || canvasH);
+                const scale = Math.max(scaleX, scaleY);
+                img.scale(scale);
+                const newW = (img.width || 0) * scale;
+                const newH = (img.height || 0) * scale;
+                const left = (canvasW - newW) / 2;
+                const top = (canvasH - newH) / 2;
+                img.set({ left, top });
+                (img as any).name = "tshirt-base-photo";
+                tempFabricCanvas.add(img);
+                tempFabricCanvas.sendObjectToBack(img);
+              } catch (err) {
+                console.error("Failed to load base image for preview:", err);
+              }
+            }
+          }
+          
+          // Add design layers for this side
+          targetLayers.forEach((layer) => {
+            if (layer.type === "text") {
+              const text = new FabricText(layer.data.content || "", {
+                left: layer.data.x,
+                top: layer.data.y,
+                fontSize: layer.data.size,
+                fill: layer.data.color,
+                fontFamily: layer.data.font,
+                angle: layer.data.rotation,
+                scaleX: layer.data.scale,
+                scaleY: layer.data.scale,
+              });
+              (text as any).name = "custom-text";
+              (text as any).layerId = layer.id;
+              tempFabricCanvas.add(text);
+            } else if (layer.type === "image" && layer.data.url) {
+              FabricImage.fromURL(layer.data.url).then((img) => {
+                img.set({
+                  left: layer.data.x,
+                  top: layer.data.y,
+                  angle: layer.data.rotation,
+                  scaleX: layer.data.scale,
+                  scaleY: layer.data.scale,
+                });
+                (img as any).name = "custom-image";
+                (img as any).layerId = layer.id;
+                tempFabricCanvas.add(img);
+                tempFabricCanvas.renderAll();
+              });
+            }
+          });
+          
+          tempFabricCanvas.renderAll();
+          const previewImage = tempFabricCanvas.toDataURL({ format: "png", quality: 1, multiplier: 2 });
+          
+          // Clean up temporary canvas
+          tempFabricCanvas.dispose();
+          tempCanvas.remove();
+          
+          return previewImage;
+        }
+      };
+      
+      // Generate preview images for both sides
+      const frontPreviewImage = await generatePreviewForSide("front");
+      const backPreviewImage = await generatePreviewForSide("back");
+      
       const payload = {
         name: `${selectedProduct.name} - ${selectedColor} (${selectedSize})`,
         productId: selectedProduct._id,
@@ -1166,10 +1264,12 @@ export default function Customize() {
         frontDesign: {
           designData: currentDesignData,
           designLayers: updatedFrontLayers,
-          previewImage: currentPreviewImage,
+          previewImage: frontPreviewImage,
         },
         backDesign: {
+          designData: currentDesignData,
           designLayers: updatedBackLayers,
+          previewImage: backPreviewImage,
         },
         totalPrice,
       };
