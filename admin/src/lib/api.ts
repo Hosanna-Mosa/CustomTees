@@ -69,6 +69,20 @@ export const api = {
 
   // Products
   getProducts: () => request<{ success: boolean; data: any[] }>(`/products`),
+  createProduct: (data: any) => request<{ success: boolean; data: any }>(`/products`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateProduct: (id: string, data: any) => request<{ success: boolean; data: any }>(`/products/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  deleteProduct: (id: string) => request<{ success: boolean; message: string }>(`/products/${id}`, {
+    method: 'DELETE',
+  }),
+
+  // Designs
+  getDesigns: () => request<{ success: boolean; data: any[] }>(`/admin/designs`),
 }
 
 export default api
