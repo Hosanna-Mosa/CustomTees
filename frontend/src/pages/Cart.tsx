@@ -76,16 +76,16 @@ export default function Cart() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      <div className="container mx-auto px-4 py-8 flex-1">
-        <h1 className="mb-8 text-3xl font-bold">Shopping Cart</h1>
+      <div className="container mx-auto px-4 py-4 lg:py-8 flex-1">
+        <h1 className="mb-6 lg:mb-8 text-2xl lg:text-3xl font-bold">Shopping Cart</h1>
 
-        <div className="grid gap-8 lg:grid-cols-3">
+        <div className="grid gap-6 lg:gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-4">
             {cartItems.map((item) => (
               <Card key={item._id}>
-                <CardContent className="p-6">
-                  <div className="flex gap-6">
-                    <div className="h-32 w-32 shrink-0 overflow-hidden rounded-lg bg-muted">
+                <CardContent className="p-4 lg:p-6">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="h-24 w-24 sm:h-32 sm:w-32 shrink-0 overflow-hidden rounded-lg bg-muted mx-auto sm:mx-0">
                       {item.frontDesign?.previewImage ? (
                         <img
                           src={item.frontDesign.previewImage}
@@ -93,19 +93,19 @@ export default function Cart() {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="h-full w-full flex items-center justify-center text-muted-foreground">
+                        <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
                           No Preview
                         </div>
                       )}
                     </div>
 
-                    <div className="flex flex-1 flex-col justify-between">
-                      <div>
-                        <h3 className="text-lg font-semibold">{item.productName}</h3>
-                        <p className="text-sm text-muted-foreground">
+                    <div className="flex flex-1 flex-col justify-between space-y-4">
+                      <div className="text-center sm:text-left">
+                        <h3 className="text-base lg:text-lg font-semibold">{item.productName}</h3>
+                        <p className="text-xs lg:text-sm text-muted-foreground">
                           Size: {item.selectedSize} | Color: {item.selectedColor}
                         </p>
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <p className="text-xs lg:text-sm text-muted-foreground mt-1">
                           Base Price: ₹{item.basePrice.toFixed(2)}
                           {item.frontCustomizationCost > 0 && (
                             <span> | Front Design: ₹{item.frontCustomizationCost.toFixed(2)}</span>
@@ -116,15 +116,15 @@ export default function Cart() {
                         </p>
                       </div>
 
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <label className="text-sm font-medium">Quantity:</label>
+                          <label className="text-xs lg:text-sm font-medium">Quantity:</label>
                           <input
                             type="number"
                             min="1"
                             value={item.quantity}
                             disabled={loading}
-                            className="w-16 rounded-md border border-input bg-background px-2 py-1 text-center disabled:opacity-50"
+                            className="w-12 lg:w-16 rounded-md border border-input bg-background px-2 py-1 text-center text-xs lg:text-sm disabled:opacity-50"
                             onChange={(e) => {
                               const newQuantity = parseInt(e.target.value) || 1;
                               updateItemQuantity(item._id, newQuantity);
@@ -133,7 +133,7 @@ export default function Cart() {
                         </div>
 
                         <div className="flex items-center gap-4">
-                          <span className="text-lg font-bold">
+                          <span className="text-base lg:text-lg font-bold">
                             ₹{(item.totalPrice * item.quantity).toFixed(2)}
                           </span>
                           <Button
@@ -141,8 +141,9 @@ export default function Cart() {
                             size="icon"
                             disabled={loading}
                             onClick={() => handleRemoveItem(item._id)}
+                            className="h-8 w-8 lg:h-10 lg:w-10"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
                           </Button>
                         </div>
                       </div>
@@ -154,9 +155,9 @@ export default function Cart() {
           </div>
 
           <div className="lg:col-span-1">
-            <Card className="sticky top-24">
-              <CardContent className="p-6 space-y-4">
-                <h2 className="text-xl font-bold">Order Summary</h2>
+            <Card className="sticky top-20 lg:top-24">
+              <CardContent className="p-4 lg:p-6 space-y-4">
+                <h2 className="text-lg lg:text-xl font-bold">Order Summary</h2>
 
                 <div className="space-y-2 border-b pb-4">
                   <div className="flex justify-between text-sm">
@@ -176,21 +177,21 @@ export default function Cart() {
                   )}
                 </div>
 
-                <div className="flex justify-between text-lg font-bold">
+                <div className="flex justify-between text-base lg:text-lg font-bold">
                   <span>Total</span>
                   <span className="text-primary">₹{total.toFixed(2)}</span>
                 </div>
 
                 <Button
                   onClick={handleCheckout}
-                  className="w-full gradient-hero shadow-primary"
+                  className="w-full gradient-hero shadow-primary text-sm lg:text-base"
                   size="lg"
                 >
                   Proceed to Checkout
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
 
-                <div className="rounded-lg bg-muted/50 p-4 text-sm">
+                <div className="rounded-lg bg-muted/50 p-3 lg:p-4 text-xs lg:text-sm">
                   <p className="font-medium">Secure Checkout</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Your payment information is encrypted and secure.

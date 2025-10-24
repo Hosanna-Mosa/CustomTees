@@ -51,64 +51,64 @@ export default function Orders() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-8 flex-1">
+      <div className="container mx-auto px-4 py-4 lg:py-8 flex-1">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-8">
+          <div className="mb-6 lg:mb-8">
             <Button 
               variant="ghost" 
               onClick={() => navigate('/products')}
-              className="mb-4"
+              className="mb-4 text-sm lg:text-base"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Continue Shopping
             </Button>
-            <h1 className="text-3xl font-bold mb-2">My Orders</h1>
-            <p className="text-muted-foreground">Track and manage your orders</p>
+            <h1 className="text-2xl lg:text-3xl font-bold mb-2">My Orders</h1>
+            <p className="text-sm lg:text-base text-muted-foreground">Track and manage your orders</p>
           </div>
 
           {error && (
             <Card className="mb-6 border-red-200 bg-red-50">
-              <CardContent className="p-4">
-                <p className="text-red-600">{error}</p>
+              <CardContent className="p-3 lg:p-4">
+                <p className="text-red-600 text-sm lg:text-base">{error}</p>
               </CardContent>
             </Card>
           )}
 
           {orders.length === 0 && !error ? (
-            <Card className="text-center py-12">
+            <Card className="text-center py-8 lg:py-12">
               <CardContent>
-                <ShoppingBag className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No orders yet</h3>
-                <p className="text-muted-foreground mb-6">Start shopping to see your orders here</p>
-                <Button onClick={() => navigate('/products')}>
+                <ShoppingBag className="h-12 w-12 lg:h-16 lg:w-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg lg:text-xl font-semibold mb-2">No orders yet</h3>
+                <p className="text-muted-foreground mb-6 text-sm lg:text-base">Start shopping to see your orders here</p>
+                <Button onClick={() => navigate('/products')} className="text-sm lg:text-base">
                   Browse Products
                 </Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4 lg:space-y-6">
               {orders.map((order) => {
                 const statusInfo = statusConfig[order.status as keyof typeof statusConfig] || statusConfig.placed
                 const StatusIcon = statusInfo.icon
                 
                 return (
                   <Card key={order._id} className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2">
-                          <Package className="h-5 w-5" />
+                    <CardHeader className="p-4 lg:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <CardTitle className="flex items-center gap-2 text-base lg:text-lg">
+                          <Package className="h-4 w-4 lg:h-5 lg:w-5" />
                           Order #{order._id.slice(-8)}
                         </CardTitle>
-                        <Badge className={statusInfo.color}>
+                        <Badge className={statusInfo.color} className="w-fit">
                           <StatusIcon className="h-3 w-3 mr-1" />
                           {statusInfo.label}
                         </Badge>
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs lg:text-sm text-muted-foreground">
                         Placed on {new Date(order.createdAt).toLocaleDateString()}
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-4 p-4 lg:p-6">
                       {order.items?.map((item: any, index: number) => {
                         // Debug: Log the item structure to understand the data
                         console.log('Order item:', item);
@@ -129,8 +129,8 @@ export default function Orders() {
                         console.log('Image source type:', typeof imageSrc);
                         
                         return (
-                          <div key={index} className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
-                            <div className="w-16 h-16 flex-shrink-0">
+                          <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 lg:p-4 bg-muted/50 rounded-lg">
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 mx-auto sm:mx-0">
                               {imageSrc ? (
                                 <img 
                                   src={imageSrc} 
@@ -145,12 +145,12 @@ export default function Orders() {
                                 />
                               ) : null}
                               <div className={`w-full h-full bg-muted rounded-lg flex items-center justify-center ${imageSrc ? 'hidden' : ''}`}>
-                                <Package className="h-6 w-6 text-muted-foreground" />
+                                <Package className="h-4 w-4 sm:h-6 sm:w-6 text-muted-foreground" />
                               </div>
                             </div>
-                            <div className="flex-1">
-                              <h4 className="font-semibold">{item.product?.name || 'Custom Product'}</h4>
-                              <p className="text-sm text-muted-foreground">
+                            <div className="flex-1 text-center sm:text-left">
+                              <h4 className="font-semibold text-sm lg:text-base">{item.product?.name || 'Custom Product'}</h4>
+                              <p className="text-xs lg:text-sm text-muted-foreground">
                                 {(item.customDesign || item.frontDesign || item.backDesign) ? (
                                   <>
                                     Size: {item.customDesign?.selectedSize || 'N/A'} | Color: {item.customDesign?.selectedColor || 'N/A'}
@@ -161,7 +161,7 @@ export default function Orders() {
                                   item.product?.description
                                 )}
                               </p>
-                              <div className="flex items-center gap-4 mt-2 text-sm">
+                              <div className="flex flex-col sm:flex-row items-center gap-2 mt-2 text-xs lg:text-sm">
                                 <span>Qty: {item.quantity}</span>
                                 <span className="font-semibold text-primary">₹{Number(item.price).toFixed(2)}</span>
                               </div>
@@ -172,20 +172,20 @@ export default function Orders() {
                       
                       <Separator />
                       
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="space-y-1">
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-xs lg:text-sm text-muted-foreground">
                             Payment: {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Razorpay'}
                           </div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-xs lg:text-sm text-muted-foreground break-all">
                             Order ID: {order._id}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-primary">
+                        <div className="text-center sm:text-right">
+                          <div className="text-base lg:text-lg font-bold text-primary">
                             ₹{Number(order.total).toFixed(2)}
                           </div>
-                          <div className="text-sm text-muted-foreground">Total</div>
+                          <div className="text-xs lg:text-sm text-muted-foreground">Total</div>
                         </div>
                       </div>
                     </CardContent>

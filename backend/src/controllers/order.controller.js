@@ -30,9 +30,9 @@ export const createOrderFromCart = async (req, res) => {
     
     // Convert cart items to order items
     const orderItems = user.cart.map(cartItem => {
-      console.log('Cart item being converted:', cartItem);
-      console.log('Front design preview:', cartItem.frontDesign?.previewImage);
-      console.log('Back design preview:', cartItem.backDesign?.previewImage);
+      // console.log('Cart item being converted:', cartItem);
+      // console.log('Front design preview:', cartItem.frontDesign?.previewImage);
+      // console.log('Back design preview:', cartItem.backDesign?.previewImage);
       
       return {
         product: cartItem.productId,
