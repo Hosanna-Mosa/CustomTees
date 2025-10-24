@@ -17,6 +17,8 @@ const app = express();
 
 // DB
 connectDB();
+// Create indexes for better performance
+createIndexes();
 
 // Cloudinary
 configureCloudinary();
