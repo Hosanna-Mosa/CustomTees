@@ -186,8 +186,9 @@ export default function Customize() {
     
     // Mobile-responsive canvas sizing
     const isMobile = window.innerWidth < 768;
-    const canvasWidth = isMobile ? 300 : 500;
-    const canvasHeight = isMobile ? 360 : 600;
+    const isDesktop = window.innerWidth >= 1024;
+    const canvasWidth = isMobile ? 300 : isDesktop ? 600 : 500;
+    const canvasHeight = isMobile ? 360 : isDesktop ? 720 : 600;
     
     const canvas = new FabricCanvas(el, {
       width: canvasWidth,
@@ -1514,7 +1515,7 @@ export default function Customize() {
               transition={{ duration: 0 }}
             >
         {/* Mobile-first responsive layout */}
-        <div className="space-y-4 lg:space-y-0 lg:grid lg:gap-8 lg:grid-cols-[400px_1fr_300px]">
+        <div className="space-y-4 lg:space-y-0 lg:grid lg:gap-8 lg:grid-cols-[350px_1fr_350px] xl:grid-cols-[400px_1fr_400px]">
           {/* Mobile: Top - Product Options */}
           <div className="lg:order-1">
             <Card className="h-fit">
@@ -1644,7 +1645,7 @@ export default function Customize() {
 
           {/* Mobile: Center - Canvas */}
           <div className="lg:order-2">
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-3 lg:gap-6">
               {/* Canvas Container - Mobile Optimized */}
               <div className="mobile-canvas-container">
                 <div className="mobile-canvas-wrapper">
@@ -1657,7 +1658,7 @@ export default function Customize() {
               </div>
 
               {/* Canvas Controls - Mobile Optimized */}
-              <div className="mobile-controls">
+              <div className="mobile-controls lg:gap-2">
                 <Button variant="outline" size="sm" onClick={handleRotate} className="mobile-control-btn">
                   <RotateCw className="mr-1 h-3 w-3" />
                   <span className="hidden xs:inline">Rotate</span>

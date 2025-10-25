@@ -194,23 +194,23 @@ All colors MUST be HSL.
   
   /* Mobile customization specific utilities */
   .mobile-canvas-container {
-    @apply w-full max-w-sm mx-auto;
+    @apply w-full max-w-sm mx-auto lg:max-w-2xl;
   }
   
   .mobile-canvas-wrapper {
-    @apply relative rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/20 p-2 overflow-hidden;
+    @apply relative rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/20 p-2 overflow-hidden lg:p-4 lg:min-h-[500px] lg:flex lg:items-center lg:justify-center;
   }
   
   .mobile-canvas {
-    @apply w-full h-auto max-w-full block mx-auto;
+    @apply w-full h-auto max-w-full block mx-auto lg:max-w-none lg:max-h-[500px] lg:object-contain;
   }
   
   .mobile-controls {
-    @apply flex flex-wrap gap-1 justify-center w-full max-w-sm;
+    @apply flex flex-wrap gap-1 justify-center w-full max-w-sm lg:max-w-2xl lg:gap-2;
   }
   
   .mobile-control-btn {
-    @apply text-xs px-2 py-1 h-8;
+    @apply text-xs px-2 py-1 h-8 lg:px-3 lg:py-2 lg:h-9 lg:text-sm;
   }
   
   .mobile-form-compact {
