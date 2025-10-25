@@ -36,21 +36,31 @@ const __dirname = path.dirname(__filename);
 // Helper function to upload T-shirt image to Cloudinary
 const uploadTShirtImage = async (colorName, type = 'general') => {
   const basePath = path.join(__dirname, 'T-shirts');
-  const fileName = `t-shirt-${colorName}-${type}`;
   const extensions = ['.jpg', '.jpeg', '.png', '.webp'];
   
-  // Try to find the image file with different extensions
+  // Try multiple naming patterns to handle file naming inconsistencies
+  const possibleFileNames = [
+    `t-shirt-${colorName}-${type}`,  // Standard format: t-shirt-kiwi-front
+    `t-shirt-${colorName}${type}`,   // Missing hyphen: t-shirt-Kiwifront
+    `t-shirt-${colorName.replace(/-/g, ' ')}-${type}`, // With spaces: t-shirt-Blue Dusk-front
+    `t-shirt-${colorName.replace(/-/g, ' ')}${type}`,  // With spaces, no hyphen: t-shirt-Blue Duskfront
+  ];
+  
+  // Try to find the image file with different naming patterns and extensions
   let imagePath = null;
-  for (const ext of extensions) {
-    const fullPath = path.join(basePath, `${fileName}${ext}`);
-    if (fs.existsSync(fullPath)) {
-      imagePath = fullPath;
-      break;
+  for (const fileName of possibleFileNames) {
+    for (const ext of extensions) {
+      const fullPath = path.join(basePath, `${fileName}${ext}`);
+      if (fs.existsSync(fullPath)) {
+        imagePath = fullPath;
+        break;
+      }
     }
+    if (imagePath) break;
   }
   
   if (!imagePath) {
-    console.warn(`⚠️  Image not found: ${fileName} (tried extensions: ${extensions.join(', ')})`);
+    console.warn(`⚠️  Image not found for ${colorName} ${type} (tried patterns: ${possibleFileNames.join(', ')})`);
     // Return a placeholder if image doesn't exist
     return {
       url: `https://via.placeholder.com/400x400/cccccc/666666?text=${colorName}+${type}`,
@@ -59,12 +69,12 @@ const uploadTShirtImage = async (colorName, type = 'general') => {
   }
   
   try {
-    console.log(`☁️  Uploading ${fileName} to Cloudinary...`);
+    console.log(`☁️  Uploading ${path.basename(imagePath)} to Cloudinary...`);
     const result = await uploadImage(imagePath);
-    console.log(`✅ Uploaded ${fileName} successfully`);
+    console.log(`✅ Uploaded ${path.basename(imagePath)} successfully`);
     return result;
   } catch (error) {
-    console.error(`❌ Failed to upload ${fileName}:`, error.message);
+    console.error(`❌ Failed to upload ${path.basename(imagePath)}:`, error.message);
     // Return placeholder on upload failure
     return {
       url: `https://via.placeholder.com/400x400/cccccc/666666?text=${colorName}+${type}`,
@@ -73,13 +83,82 @@ const uploadTShirtImage = async (colorName, type = 'general') => {
   }
 };
 
+// Helper function to upload Hoodie image to Cloudinary
+const uploadHoodieImage = async (colorName, type = 'general') => {
+  const basePath = path.join(__dirname, 'hoodies');
+  const extensions = ['.jpg', '.jpeg', '.png', '.webp'];
+  
+  // Try multiple naming patterns to handle file naming inconsistencies
+  const possibleFileNames = [
+    `hodded-${colorName}-${type}`,  // Standard format: hodded-black-front
+    `hodded-${colorName.replace(/-/g, '_')}-${type}`, // With underscores: hodded-Dark_chocolate-front
+    `hodded-${colorName.replace(/-/g, ' ')}-${type}`, // With spaces: hodded-Antique cherry red-front
+    `hodded-${colorName.replace(/-/g, ' ')}${type}`,  // With spaces, no hyphen: hodded-Antique cherry redfront
+  ];
+  
+  // Try to find the image file with different naming patterns and extensions
+  let imagePath = null;
+  for (const fileName of possibleFileNames) {
+    for (const ext of extensions) {
+      const fullPath = path.join(basePath, `${fileName}${ext}`);
+      if (fs.existsSync(fullPath)) {
+        imagePath = fullPath;
+        break;
+      }
+    }
+    if (imagePath) break;
+  }
+  
+  if (!imagePath) {
+    console.warn(`⚠️  Hoodie image not found for ${colorName} ${type} (tried patterns: ${possibleFileNames.join(', ')})`);
+    // Return a placeholder if image doesn't exist
+    return {
+      url: `https://via.placeholder.com/400x400/cccccc/666666?text=${colorName}+${type}`,
+      public_id: `hoodies/${colorName}_${type}_placeholder`
+    };
+  }
+  
+  try {
+    console.log(`☁️  Uploading hoodie ${path.basename(imagePath)} to Cloudinary...`);
+    const result = await uploadImage(imagePath);
+    console.log(`✅ Uploaded hoodie ${path.basename(imagePath)} successfully`);
+    return result;
+  } catch (error) {
+    console.error(`❌ Failed to upload hoodie ${path.basename(imagePath)}:`, error.message);
+    // Return placeholder on upload failure
+    return {
+      url: `https://via.placeholder.com/400x400/cccccc/666666?text=${colorName}+${type}`,
+      public_id: `hoodies/${colorName}_${type}_error`
+    };
+  }
+};
+
 // Helper function to create color variants with uploaded T-shirt images
 const createVariant = async (color, colorCode) => {
-  const colorName = color.replace(/\s+/g, ''); // Remove spaces for filename
+  // Convert color name to match file naming convention (lowercase with hyphens)
+  const colorName = color.toLowerCase().replace(/\s+/g, '-');
   
   // Upload front and back images to Cloudinary
   const frontImage = await uploadTShirtImage(colorName, 'front');
   const backImage = await uploadTShirtImage(colorName, 'back');
+  
+  return {
+    color,
+    colorCode,
+    images: [frontImage, backImage],
+    frontImages: [frontImage],
+    backImages: [backImage]
+  };
+};
+
+// Helper function to create hoodie color variants with uploaded images
+const createHoodieVariant = async (color, colorCode) => {
+  // Convert color name to match file naming convention (lowercase with hyphens)
+  const colorName = color.toLowerCase().replace(/\s+/g, '-');
+  
+  // Upload front and back images to Cloudinary
+  const frontImage = await uploadHoodieImage(colorName, 'front');
+  const backImage = await uploadHoodieImage(colorName, 'back');
   
   return {
     color,
@@ -176,14 +255,66 @@ const createSampleProducts = async () => {
   const logoUrl = await uploadLogoImage();
   const previewUrl = await uploadPreviewImage();
   
-  // Create variants with uploaded images
+  // Create variants with uploaded images - All available t-shirt colors
   const variants = await Promise.all([
-    
+    createVariant('antique cherry red', '#8B0000'),
+    createVariant('antique irish green', '#4B5320'),
+    createVariant('antique royal', '#4169E1'),
+    createVariant('ash', '#B2BEB5'),
+    createVariant('Azalea', '#F7CAC9'),
+    createVariant('Blue Dusk', '#2E4A62'),
+    createVariant('cardinal-red', '#C41E3A'),
+    createVariant('carolinal-blue', '#4B0082'),
+    createVariant('charcole', '#36454F'),
+    createVariant('cherry-red', '#DE3163'),
+    createVariant('cornsilk', '#FFF8DC'),
+    createVariant('Daisy', '#FFD700'),
+    createVariant('Dark-chocolate', '#3C2415'),
+    createVariant('Forest', '#228B22'),
+    createVariant('Galapagos-blue', '#1E90FF'),
+    createVariant('Gold', '#FFD700'),
+    createVariant('Heather-cardinal', '#C41E3A'),
+    createVariant('Heather-indigo', '#4B0082'),
+    createVariant('Heather-Navy', '#000080'),
+    createVariant('Heather-sapphire', '#0F52BA'),
+    createVariant('Heliconia', '#FF6B6B'),
+    createVariant('Ice-Grey', '#B0B0B0'),
+    createVariant('Indigo-Blue', '#4B0082'),
+    createVariant('Iris', '#5D4E75'),
+    createVariant('Irish-green', '#40E0D0'),
+    createVariant('Jade-Dome', '#00A86B'),
+    createVariant('Kelly', '#4CBB17'),
+    createVariant('Kiwi', '#8FBC8F'),
+    createVariant('Light-blue', '#ADD8E6'),
+    createVariant('Light-pink', '#FFB6C1'),
+    createVariant('Lime', '#32CD32'),
+    createVariant('Maroon', '#800000'),
+    createVariant('Metro-blue', '#1E3A8A'),
+    createVariant('Militry-green', '#355E3B'),
+    createVariant('Mint-green', '#98FB98'),
+    createVariant('Natural', '#F5F5DC'),
+    createVariant('Navy', '#000080'),
+    createVariant('Olive', '#808000'),
+    createVariant('Orange', '#FFA500'),
+    createVariant('Orchid', '#DA70D6'),
+    createVariant('pfd-white', '#FFFFFF'),
+    createVariant('pistachio', '#93C572'),
+    createVariant('prairie-dust', '#D2B48C'),
+    createVariant('purple', '#800080'),
     createVariant('red', '#DC2626'),
+    createVariant('royal', '#4169E1'),
+    createVariant('safety-green', '#16A34A'),
+    createVariant('safety-orange', '#FF8C00'),
+    createVariant('safety-pink', '#FF69B4'),
+    createVariant('sand', '#F4A460'),
+    createVariant('sapphire', '#0F52BA'),
+    createVariant('sky', '#87CEEB'),
     createVariant('sport-grey', '#6B7280'),
     createVariant('stone-blue', '#2563EB'),
-    createVariant('safety-green', '#16A34A'),
-
+    createVariant('tan', '#D2B48C'),
+    createVariant('tangerine', '#F28500'),
+    createVariant('texas-orange', '#FF4500'),
+    createVariant('vegas-gold', '#FFD700'),
   ]);
   
   return [
@@ -223,6 +354,98 @@ const createSampleProducts = async () => {
   ];
 };
 
+// Function to create hoodie products with uploaded images
+const createHoodieProducts = async () => {
+  console.log('🎨 Creating hoodie products with Cloudinary uploads...');
+  
+  // Upload logo and preview images first
+  const logoUrl = await uploadLogoImage();
+  const previewUrl = await uploadPreviewImage();
+  
+  // Create hoodie variants with uploaded images - All available hoodie colors
+  const hoodieVariants = await Promise.all([
+    createHoodieVariant('Antique cherry red', '#8B0000'),
+    createHoodieVariant('Antique sapphire', '#0F52BA'),
+    createHoodieVariant('Ash', '#B2BEB5'),
+    createHoodieVariant('Azalea', '#F7CAC9'),
+    createHoodieVariant('black', '#000000'),
+    createHoodieVariant('Cardinal red', '#C41E3A'),
+    createHoodieVariant('Carolina blue', '#4B0082'),
+    createHoodieVariant('Charcoal', '#36454F'),
+    createHoodieVariant('Cherry red', '#DE3163'),
+    createHoodieVariant('Dark chocolate', '#3C2415'),
+    createHoodieVariant('Dark Heather', '#696969'),
+    createHoodieVariant('Forest', '#228B22'),
+    createHoodieVariant('Garnet', '#800020'),
+    createHoodieVariant('Gold', '#FFD700'),
+    createHoodieVariant('Graphite Heather', '#4A4A4A'),
+    createHoodieVariant('Heather dark green', '#355E3B'),
+    createHoodieVariant('Heather dark Maroon', '#800000'),
+    createHoodieVariant('Heather dark Navy', '#000080'),
+    createHoodieVariant('Heather dark Royal', '#4169E1'),
+    createHoodieVariant('Heather Scarlet Red', '#DC143C'),
+    createHoodieVariant('Heliconia', '#FF6B6B'),
+    createHoodieVariant('indigo blue', '#4B0082'),
+    createHoodieVariant('Irish Green', '#40E0D0'),
+    createHoodieVariant('light Blue', '#ADD8E6'),
+    createHoodieVariant('light Pink', '#FFB6C1'),
+    createHoodieVariant('Maroon', '#800000'),
+    createHoodieVariant('Military Greeen', '#355E3B'),
+    createHoodieVariant('Mint Greeen', '#98FB98'),
+    createHoodieVariant('Navy', '#000080'),
+    createHoodieVariant('Old Gold', '#CFB53B'),
+    createHoodieVariant('Orange', '#FFA500'),
+    createHoodieVariant('Orchid', '#DA70D6'),
+    createHoodieVariant('Purple', '#800080'),
+    createHoodieVariant('Red', '#DC2626'),
+    createHoodieVariant('Royal', '#4169E1'),
+    createHoodieVariant('Safety Green', '#16A34A'),
+    createHoodieVariant('Safety Orange', '#FF8C00'),
+    createHoodieVariant('Safety Pink', '#FF69B4'),
+    createHoodieVariant('Sand', '#F4A460'),
+    createHoodieVariant('Sapphire', '#0F52BA'),
+    createHoodieVariant('Sport Grey', '#6B7280'),
+    createHoodieVariant('Violet', '#8A2BE2'),
+    createHoodieVariant('white', '#FFFFFF'),
+  ]);
+  
+  return [
+    {
+      name: 'Premium Cotton Hoodie',
+      description: 'Soft, comfortable 100% cotton hoodie with fleece lining. Perfect for casual wear and colder weather. Features adjustable drawstring hood and kangaroo pocket.',
+      price: 3999, // $39.99
+      sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+      stock: 100,
+      customizable: true,
+      customizationType: 'both',
+      variants: hoodieVariants,
+      designTemplate: {
+        type: 'predefined',
+        layers: [
+          createTextLayer('CUSTOM HOODIE', 250, 200, { 
+            fontSize: 32, 
+            fontWeight: 'bold', 
+            color: '#000000',
+            zIndex: 1 
+          }),
+          createImageLayer(logoUrl, 250, 250, {
+            scale: 0.8,
+            zIndex: 2
+          })
+        ],
+        canvasSize: { width: 500, height: 500 },
+        previewUrl,
+        totalCost: 20
+      },
+      customizationPricing: {
+        perTextLayer: 5,
+        perImageLayer: 15,
+        sizeMultiplier: 0.1
+      }
+    }
+  ];
+};
+
 try {
   // Clear existing data
   await Promise.all([
@@ -233,16 +456,20 @@ try {
   console.log('🗑️  Cleared existing data...');
   
   // Create sample products with uploaded images
-  const sampleProducts = await createSampleProducts();
+  const tshirtProducts = await createSampleProducts();
+  const hoodieProducts = await createHoodieProducts();
+  
+  // Combine all products
+  const allProducts = [...tshirtProducts, ...hoodieProducts];
   
   // Log expected image files for the first product (T-shirt)
-  if (sampleProducts.length > 0) {
-    logExpectedImages(sampleProducts[0].variants);
+  if (tshirtProducts.length > 0) {
+    logExpectedImages(tshirtProducts[0].variants);
   }
   
   // Create products with slugs
   const products = [];
-  for (const productData of sampleProducts) {
+  for (const productData of allProducts) {
     const slug = slugify(productData.name, { lower: true });
     products.push({ ...productData, slug });
   }
@@ -268,6 +495,8 @@ try {
   // Display summary
   console.log('\n📊 Seeding Summary:');
   console.log(`- Products: ${createdProducts.length}`);
+  console.log(`- T-shirts: ${tshirtProducts.length} (${tshirtProducts[0]?.variants.length || 0} color variants)`);
+  console.log(`- Hoodies: ${hoodieProducts.length} (${hoodieProducts[0]?.variants.length || 0} color variants)`);
   console.log(`- Total variants: ${createdProducts.reduce((sum, p) => sum + p.variants.length, 0)}`);
   console.log(`- Total images uploaded to Cloudinary: ${createdProducts.reduce((sum, p) => sum + p.variants.reduce((vSum, v) => vSum + v.images.length, 0), 0)}`);
   console.log(`- Customizable products: ${createdProducts.filter(p => p.customizable).length}`);
