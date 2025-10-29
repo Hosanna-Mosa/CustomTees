@@ -43,7 +43,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
 
-// Health
+
 app.get('/api/health', (req, res) => res.json({ success: true, message: 'OK' }));
 
 // Errors

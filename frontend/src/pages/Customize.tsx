@@ -86,7 +86,7 @@ const CATEGORIES: Category[] = [
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const FONTS = ["Arial", "Helvetica", "Times New Roman", "Courier New", "Georgia", "Verdana"];
 // Dynamic pricing: cost derived from rendered object area (in pixels)
-const PRICE_PER_PIXEL = 0.02; // ₹ per pixel area
+const PRICE_PER_PIXEL = 0.02; // ₹ per pixel areai
 
 export default function Customize() {
   const { addItemToCart } = useCart();
@@ -1035,8 +1035,8 @@ export default function Customize() {
       const updatedBackLayers = designSide === 'back' ? syncLayersFromCanvas(backDesignLayers) : backDesignLayers;
 
       const currentDesignData = fabricCanvas.toJSON();
-      
-      // Compress the preview image to reduce size and avoid MongoDB BSON limit
+
+      // Helper: compress a dataURL png/jpeg
       const compressImage = (dataUrl: string, quality: number = 0.7): Promise<string> => {
         return new Promise<string>((resolve) => {
           const canvas = document.createElement('canvas');
@@ -1065,14 +1065,86 @@ export default function Customize() {
           img.src = dataUrl;
         });
       };
-      
-      const currentPreviewImage = await compressImage(
-        fabricCanvas.toDataURL({ format: "png", quality: 1, multiplier: 2 }),
-        0.6 // Lower quality for smaller size
-      );
-      
-      console.log('[Customize] Preview image generated:', currentPreviewImage.substring(0, 100) + '...');
-      
+
+      // Generate preview images for both sides regardless of current side
+      const generatePreviewForSide = async (side: "front" | "back") => {
+        // If we're currently on this side, take directly from current canvas
+        if (side === designSide) {
+          const dataUrl = fabricCanvas.toDataURL({ format: "png", quality: 1, multiplier: 2 });
+          return compressImage(dataUrl, 0.6);
+        }
+
+        const targetLayers = side === 'front' ? updatedFrontLayers : updatedBackLayers;
+        // Create a temporary canvas to render that side
+        const tempCanvasEl = document.createElement('canvas');
+        tempCanvasEl.width = 500;
+        tempCanvasEl.height = 600;
+        const tempCanvas = new FabricCanvas(tempCanvasEl, { width: 500, height: 600, backgroundColor: 'transparent' });
+
+        // Base product image for that side
+        if (selectedProduct && selectedColor) {
+          const variant = selectedProduct.variants.find((v) => v.color === selectedColor);
+          const imgUrl = variant ? pickVariantImageForSide(variant, side) : undefined;
+          if (imgUrl) {
+            try {
+              const baseImg = await FabricImage.fromURL(imgUrl, { crossOrigin: 'anonymous' });
+              baseImg.set({ selectable: false, evented: false });
+              const canvasW = 500; const canvasH = 600;
+              const scaleX = canvasW / (baseImg.width || canvasW);
+              const scaleY = canvasH / (baseImg.height || canvasH);
+              const scale = Math.max(scaleX, scaleY);
+              baseImg.scale(scale);
+              const newW = (baseImg.width || 0) * scale;
+              const newH = (baseImg.height || 0) * scale;
+              baseImg.set({ left: (canvasW - newW) / 2, top: (canvasH - newH) / 2 });
+              (baseImg as any).name = 'tshirt-base-photo';
+              tempCanvas.add(baseImg);
+              tempCanvas.sendObjectToBack(baseImg);
+            } catch {}
+          }
+        }
+
+        // Add layers
+        const imagePromises: Promise<any>[] = [];
+        targetLayers.forEach((layer) => {
+          if (layer.type === 'text') {
+            const t = new FabricText(layer.data.content || '', {
+              left: layer.data.x,
+              top: layer.data.y,
+              fontSize: layer.data.size,
+              fill: layer.data.color,
+              fontFamily: layer.data.font,
+              angle: layer.data.rotation,
+              scaleX: layer.data.scale,
+              scaleY: layer.data.scale,
+            });
+            (t as any).name = 'custom-text';
+            (t as any).layerId = layer.id;
+            tempCanvas.add(t);
+          } else if (layer.type === 'image' && layer.data.url) {
+            imagePromises.push(
+              FabricImage.fromURL(layer.data.url).then((img) => {
+                img.set({ left: layer.data.x, top: layer.data.y, angle: layer.data.rotation, scaleX: layer.data.scale, scaleY: layer.data.scale });
+                (img as any).name = 'custom-image';
+                (img as any).layerId = layer.id;
+                tempCanvas.add(img);
+                return img;
+              })
+            );
+          }
+        });
+
+        await Promise.all(imagePromises);
+        tempCanvas.renderAll();
+        const dataUrl = tempCanvas.toDataURL({ format: 'png', quality: 1, multiplier: 2 });
+        tempCanvas.dispose();
+        tempCanvasEl.remove();
+        return compressImage(dataUrl, 0.6);
+      };
+
+      const frontPreviewImage = await generatePreviewForSide('front');
+      const backPreviewImage = await generatePreviewForSide('back');
+
       // Prepare cart item data
       const cartItem = {
         productId: selectedProduct._id,
@@ -1083,12 +1155,12 @@ export default function Customize() {
         frontDesign: {
           designData: currentDesignData,
           designLayers: updatedFrontLayers,
-          previewImage: currentPreviewImage,
+          previewImage: frontPreviewImage,
         },
         backDesign: {
-          designData: null, // Will be updated when back design is complete
+          designData: currentDesignData,
           designLayers: updatedBackLayers,
-          previewImage: null,
+          previewImage: backPreviewImage,
         },
         basePrice,
         frontCustomizationCost,
@@ -1096,7 +1168,7 @@ export default function Customize() {
         totalPrice,
         quantity: 1,
       };
-      
+
       // Check if cart item is too large for MongoDB (16MB limit)
       const cartItemSize = JSON.stringify(cartItem).length;
       console.log("[Customize] Cart item size:", cartItemSize, "bytes");
