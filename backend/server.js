@@ -5,6 +5,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import connectDB from './src/config/db.js';
+import { createIndexes } from './src/config/indexes.js';
 import { configureCloudinary } from './src/services/cloudinary.service.js';
 import authRoutes from './src/routes/auth.routes.js';
 import productRoutes from './src/routes/product.routes.js';
