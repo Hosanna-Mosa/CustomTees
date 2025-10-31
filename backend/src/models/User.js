@@ -39,11 +39,13 @@ const userSchema = new mongoose.Schema(
           designData: { type: Object },
           designLayers: [{ type: Object }],
           previewImage: { type: String },
+          metrics: { type: Object }, // <-- store design metrics
         },
         backDesign: {
           designData: { type: Object },
           designLayers: [{ type: Object }],
           previewImage: { type: String },
+          metrics: { type: Object }, // <-- store design metrics
         },
         basePrice: { type: Number, required: true },
         frontCustomizationCost: { type: Number, default: 0 },

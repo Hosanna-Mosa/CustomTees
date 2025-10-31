@@ -36,6 +36,24 @@ type OrderDetails = Order & {
           type?: string;
           data?: { url?: string };
         }>;
+        // Metrics injected from storefront at add-to-cart time
+        metrics?: {
+          widthInches?: number;
+          heightInches?: number;
+          areaInches?: number;
+          totalPixels?: number;
+          perLayer?: Array<{
+            id: string;
+            type: string;
+            widthPixels: number;
+            heightPixels: number;
+            areaPixels: number;
+            widthInches: number;
+            heightInches: number;
+            areaInches: number;
+            cost: number;
+          }>;
+        };
       };
       backDesign?: {
         previewImage?: string;
@@ -44,6 +62,23 @@ type OrderDetails = Order & {
           type?: string;
           data?: { url?: string };
         }>;
+        metrics?: {
+          widthInches?: number;
+          heightInches?: number;
+          areaInches?: number;
+          totalPixels?: number;
+          perLayer?: Array<{
+            id: string;
+            type: string;
+            widthPixels: number;
+            heightPixels: number;
+            areaPixels: number;
+            widthInches: number;
+            heightInches: number;
+            areaInches: number;
+            cost: number;
+          }>;
+        };
       };
       selectedColor?: string;
       selectedSize?: string;
@@ -121,6 +156,18 @@ export function Orders() {
 
   function closeImageZoom() {
     setZoomedImage(null)
+  }
+
+  // Helper: find per-layer metrics for a given side by layer id
+  function findLayerMetrics(
+    side: 'front' | 'back',
+    item: OrderDetails['items'][number],
+    layerId?: string
+  ) {
+    const sideData = side === 'front' ? item.customDesign?.frontDesign : item.customDesign?.backDesign
+    const per = sideData?.metrics?.perLayer
+    if (!per || !layerId) return null
+    return per.find((m) => m.id === layerId) || null
   }
 
   return (
@@ -222,6 +269,16 @@ export function Orders() {
                                             style={{ width: 60, height: 60, objectFit: 'contain', borderRadius: 6, background: 'var(--panel)', border: '1px solid var(--border)', cursor: 'zoom-in' }}
                                             onClick={() => openImageZoom(layer.data!.url!)}
                                           />
+                                          {/* Dimensions label (inches) if metrics available */}
+                                          {(() => {
+                                            const m = findLayerMetrics('front', item, layer.id)
+                                            if (!m) return null
+                                            return (
+                                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                                {m.widthInches.toFixed(2)}" × {m.heightInches.toFixed(2)}"
+                                              </div>
+                                            )
+                                          })()}
                                           <button
                                             style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--panel)', cursor: 'pointer' }}
                                             onClick={() => downloadImage(layer.data!.url!, `front-layer-${lIdx + 1}.png`)}
@@ -261,6 +318,16 @@ export function Orders() {
                                             style={{ width: 60, height: 60, objectFit: 'contain', borderRadius: 6, background: 'var(--panel)', border: '1px solid var(--border)', cursor: 'zoom-in' }}
                                             onClick={() => openImageZoom(layer.data!.url!)}
                                           />
+                                          {/* Dimensions label (inches) if metrics available */}
+                                          {(() => {
+                                            const m = findLayerMetrics('back', item, layer.id)
+                                            if (!m) return null
+                                            return (
+                                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                                {m.widthInches.toFixed(2)}" × {m.heightInches.toFixed(2)}"
+                                              </div>
+                                            )
+                                          })()}
                                           <button
                                             style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--panel)', cursor: 'pointer' }}
                                             onClick={() => downloadImage(layer.data!.url!, `back-layer-${lIdx + 1}.png`)}
