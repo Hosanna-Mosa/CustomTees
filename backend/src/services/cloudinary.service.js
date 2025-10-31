@@ -58,6 +58,20 @@ export const uploadImage = async (filePath) => {
   }
 };
 
+export const uploadDataUrl = async (dataUrl, folder = 'customtees/previews') => {
+  try {
+    const res = await cloudinary.uploader.upload(dataUrl, {
+      folder,
+      resource_type: 'image',
+      overwrite: true,
+    });
+    return { url: res.secure_url, public_id: res.public_id };
+  } catch (error) {
+    console.error('❌ Cloudinary upload (data URL) failed:', error?.message || error);
+    throw new Error(`Cloudinary data URL upload failed: ${error.message}`);
+  }
+};
+
 export const destroyImage = async (publicId) => {
   try {
     await cloudinary.uploader.destroy(publicId);

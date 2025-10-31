@@ -9,11 +9,27 @@ const orderItemSchema = new mongoose.Schema(
       frontDesign: {
         designData: { type: Object },
         designLayers: [{ type: Object }],
+        metrics: {
+          widthInches: Number,
+          heightInches: Number,
+          areaInches: Number,
+          totalPixels: Number,
+          // Accept either objects or strings (Mixed) to be tolerant of
+          // different client payload shapes during order creation
+          perLayer: [mongoose.Schema.Types.Mixed]
+        },
         previewImage: { type: String },
       },
       backDesign: {
         designData: { type: Object },
         designLayers: [{ type: Object }],
+        metrics: {
+          widthInches: Number,
+          heightInches: Number,
+          areaInches: Number,
+          totalPixels: Number,
+          perLayer: [mongoose.Schema.Types.Mixed]
+        },
         previewImage: { type: String },
       },
       selectedColor: { type: String },

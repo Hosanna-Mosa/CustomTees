@@ -1,6 +1,7 @@
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import User from '../models/User.js';
+import { uploadDataUrl } from '../services/cloudinary.service.js';
 
 export const createOrder = async (req, res) => {
   const { productId, quantity = 1, paymentMethod, shippingAddress } = req.body;
@@ -28,25 +29,67 @@ export const createOrderFromCart = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Cart is empty' });
     }
     
-    // Convert cart items to order items
-    const orderItems = user.cart.map(cartItem => {
-      console.log('Cart item being converted:', cartItem);
-      console.log('Front design preview:', cartItem.frontDesign?.previewImage);
-      console.log('Back design preview:', cartItem.backDesign?.previewImage);
-      
-      return {
+    // Normalize a side (front/back) design: upload preview if it's a data URL
+    const normalizeSideDesign = async (design) => {
+      if (!design) return undefined;
+      let previewImage = design.previewImage;
+      try {
+        if (typeof previewImage === 'string' && previewImage.startsWith('data:image')) {
+          const uploaded = await uploadDataUrl(previewImage, 'customtees/previews');
+          previewImage = uploaded.url;
+        }
+      } catch (e) {
+        // If upload fails, keep original so order still goes through
+        console.warn('[Orders] Preview upload failed, keeping data URL:', e?.message);
+      }
+
+      // Coerce metrics.perLayer to array of objects (not strings)
+      let metrics = design.metrics || undefined;
+      if (metrics) {
+        // If entire perLayer is a JSON string, parse it
+        if (typeof metrics.perLayer === 'string') {
+          try {
+            const parsed = JSON.parse(metrics.perLayer);
+            metrics.perLayer = Array.isArray(parsed) ? parsed : [];
+          } catch (_) {
+            metrics.perLayer = [];
+          }
+        }
+        if (Array.isArray(metrics.perLayer)) {
+          metrics.perLayer = metrics.perLayer.map((entry) => {
+            if (entry && typeof entry === 'string') {
+              try {
+                const parsed = JSON.parse(entry);
+                return parsed && typeof parsed === 'object' ? parsed : undefined;
+              } catch (_) {
+                return undefined;
+              }
+            }
+            return entry && typeof entry === 'object' ? entry : undefined;
+          }).filter(Boolean);
+        }
+      }
+
+      return { ...design, previewImage, metrics };
+    };
+    
+    // Convert cart items to order items (with normalized previews)
+    const orderItems = [];
+    for (const cartItem of user.cart) {
+      const frontDesign = await normalizeSideDesign(cartItem.frontDesign);
+      const backDesign = await normalizeSideDesign(cartItem.backDesign);
+      orderItems.push({
         product: cartItem.productId,
         quantity: cartItem.quantity,
         price: cartItem.totalPrice,
-        // Store custom design data
         customDesign: {
-          frontDesign: cartItem.frontDesign,
-          backDesign: cartItem.backDesign,
+          frontDesign,
+          backDesign,
           selectedColor: cartItem.selectedColor,
           selectedSize: cartItem.selectedSize,
-        }
-      };
-    });
+        },
+      });
+    }
     
     // Calculate total
     const total = user.cart.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
@@ -60,15 +103,13 @@ export const createOrderFromCart = async (req, res) => {
       shippingAddress,
     });
     
-    console.log('Order created:', JSON.stringify(order, null, 2));
-    console.log('Order items:', order.items);
-    
     // Clear user's cart after successful order
     user.cart = [];
     await user.save();
     
     res.status(201).json({ success: true, data: order });
   } catch (error) {
+    console.error('[Orders] createOrderFromCart failed:', error);
     res.status(500).json({ success: false, message: 'Failed to create order' });
   }
 };

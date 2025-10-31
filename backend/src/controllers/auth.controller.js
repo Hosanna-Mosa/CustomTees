@@ -133,6 +133,47 @@ export const deleteDesign = async (req, res) => {
 export const addToCart = async (req, res) => {
   try {
     const cartItem = req.body;
+    const rupee = (n) => `₹${Number(n || 0).toFixed(2)}`;
+
+    // Back-office logging for design metrics per requirement
+    const logSide = (side, design) => {
+      const metrics = design?.metrics || {};
+      const layers = design?.designLayers || [];
+      const wIn = typeof metrics.widthInches === 'number' ? metrics.widthInches.toFixed(2) : '0.00';
+      const hIn = typeof metrics.heightInches === 'number' ? metrics.heightInches.toFixed(2) : '0.00';
+      const wPx = typeof metrics.widthPixels === 'number' ? Math.round(metrics.widthPixels) : 0;
+      const hPx = typeof metrics.heightPixels === 'number' ? Math.round(metrics.heightPixels) : 0;
+      const areaIn = typeof metrics.areaInches === 'number' ? metrics.areaInches.toFixed(2) : '0.00';
+      const totalPx = typeof metrics.totalPixels === 'number' ? Math.round(metrics.totalPixels) : 0;
+      
+      console.log(`\n[Cart] ${side.toUpperCase()} DESIGN`);
+      console.log(`- Overall Design Width: ${wIn}\" (${wPx} px)`);
+      console.log(`- Overall Design Height: ${hIn}\" (${hPx} px)`);
+      console.log(`- Total Area: ${areaIn} in² (${totalPx} px²)`);
+      console.log(`- Layers Count: ${layers.length}`);
+      
+      if (Array.isArray(metrics?.perLayer) && metrics.perLayer.length > 0) {
+        console.log(`\n  Layer Details:`);
+        metrics.perLayer.forEach((layer, idx) => {
+          console.log(`  • Layer #${idx + 1} [${layer.type}] (ID: ${layer.id})`);
+          console.log(`    - Width: ${layer.widthInches.toFixed(2)}\" (${Math.round(layer.widthPixels)} px)`);
+          console.log(`    - Height: ${layer.heightInches.toFixed(2)}\" (${Math.round(layer.heightPixels)} px)`);
+          console.log(`    - Area: ${layer.areaInches.toFixed(2)} in² (${Math.round(layer.areaPixels)} px²)`);
+          console.log(`    - Cost: ${rupee(layer.cost)}`);
+        });
+      } else {
+        console.log(`  - No design layers`);
+      }
+    };
+
+    try {
+      console.log(`\n[Cart] Adding product '${cartItem?.productName}' (${cartItem?.selectedColor}/${cartItem?.selectedSize})`);
+      console.log(`- Base: ${rupee(cartItem?.basePrice)} | Front: ${rupee(cartItem?.frontCustomizationCost)} | Back: ${rupee(cartItem?.backCustomizationCost)} | Total: ${rupee(cartItem?.totalPrice)}`);
+      logSide('front', cartItem?.frontDesign);
+      logSide('back', cartItem?.backDesign);
+    } catch (e) {
+      console.warn('[Cart] Failed to log metrics:', e?.message);
+    }
     
     // Add cart item to user's cart array
     req.user.cart.push(cartItem);
