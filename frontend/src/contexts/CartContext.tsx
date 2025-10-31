@@ -13,11 +13,13 @@ interface CartItem {
     designData: any;
     designLayers: any[];
     previewImage: string;
+    metrics?: any;
   };
   backDesign: {
     designData: any;
     designLayers: any[];
     previewImage: string;
+    metrics?: any;
   };
   basePrice: number;
   frontCustomizationCost: number;

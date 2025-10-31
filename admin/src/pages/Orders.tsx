@@ -30,9 +30,55 @@ type OrderDetails = Order & {
     customDesign?: {
       frontDesign?: {
         previewImage?: string;
+        // Optional list of layers used to produce the preview
+        designLayers?: Array<{
+          id?: string;
+          type?: string;
+          data?: { url?: string };
+        }>;
+        // Metrics injected from storefront at add-to-cart time
+        metrics?: {
+          widthInches?: number;
+          heightInches?: number;
+          areaInches?: number;
+          totalPixels?: number;
+          perLayer?: Array<{
+            id: string;
+            type: string;
+            widthPixels: number;
+            heightPixels: number;
+            areaPixels: number;
+            widthInches: number;
+            heightInches: number;
+            areaInches: number;
+            cost: number;
+          }>;
+        };
       };
       backDesign?: {
         previewImage?: string;
+        designLayers?: Array<{
+          id?: string;
+          type?: string;
+          data?: { url?: string };
+        }>;
+        metrics?: {
+          widthInches?: number;
+          heightInches?: number;
+          areaInches?: number;
+          totalPixels?: number;
+          perLayer?: Array<{
+            id: string;
+            type: string;
+            widthPixels: number;
+            heightPixels: number;
+            areaPixels: number;
+            widthInches: number;
+            heightInches: number;
+            areaInches: number;
+            cost: number;
+          }>;
+        };
       };
       selectedColor?: string;
       selectedSize?: string;
@@ -47,6 +93,25 @@ export function Orders() {
   const [selectedOrder, setSelectedOrder] = useState<OrderDetails | null>(null)
   const [loadingOrder, setLoadingOrder] = useState<string | null>(null)
   const [zoomedImage, setZoomedImage] = useState<string | null>(null)
+
+  async function downloadImage(imageUrl: string, filename = 'layer.png') {
+    try {
+      const response = await fetch(imageUrl)
+      const blob = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+    } catch (_) {
+      // best-effort download; show a simple fallback error state inline
+      setError('Failed to download image')
+      setTimeout(() => setError(null), 2500)
+    }
+  }
 
   useEffect(() => {
     api.getOrders()
@@ -70,6 +135,8 @@ export function Orders() {
     try {
       setLoadingOrder(orderId)
       const response = await api.getOrderById(orderId)
+      console.log("order details :",response.data);
+      
       setSelectedOrder(response.data)
     } catch (e) {
       setError('Failed to load order details')
@@ -89,6 +156,18 @@ export function Orders() {
 
   function closeImageZoom() {
     setZoomedImage(null)
+  }
+
+  // Helper: find per-layer metrics for a given side by layer id
+  function findLayerMetrics(
+    side: 'front' | 'back',
+    item: OrderDetails['items'][number],
+    layerId?: string
+  ) {
+    const sideData = side === 'front' ? item.customDesign?.frontDesign : item.customDesign?.backDesign
+    const per = sideData?.metrics?.perLayer
+    if (!per || !layerId) return null
+    return per.find((m) => m.id === layerId) || null
   }
 
   return (
@@ -178,6 +257,39 @@ export function Orders() {
                                     <span className="zoom-icon">🔍</span>
                                   </div>
                                 </div>
+                                {/* Front design layers thumbnails */}
+                                {item.customDesign.frontDesign?.designLayers && item.customDesign.frontDesign.designLayers.length > 0 && (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 10 }}>
+                                    {item.customDesign.frontDesign.designLayers.map((layer, lIdx) => (
+                                      layer?.data?.url ? (
+                                        <div key={layer.id || `front-layer-${lIdx}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                                          <img
+                                            src={layer.data.url}
+                                            alt={`Front layer ${lIdx + 1}`}
+                                            style={{ width: 60, height: 60, objectFit: 'contain', borderRadius: 6, background: 'var(--panel)', border: '1px solid var(--border)', cursor: 'zoom-in' }}
+                                            onClick={() => openImageZoom(layer.data!.url!)}
+                                          />
+                                          {/* Dimensions label (inches) if metrics available */}
+                                          {(() => {
+                                            const m = findLayerMetrics('front', item, layer.id)
+                                            if (!m) return null
+                                            return (
+                                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                                {m.widthInches.toFixed(2)}" × {m.heightInches.toFixed(2)}"
+                                              </div>
+                                            )
+                                          })()}
+                                          <button
+                                            style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--panel)', cursor: 'pointer' }}
+                                            onClick={() => downloadImage(layer.data!.url!, `front-layer-${lIdx + 1}.png`)}
+                                          >
+                                            Download
+                                          </button>
+                                        </div>
+                                      ) : null
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             )}
                             
@@ -194,6 +306,39 @@ export function Orders() {
                                     <span className="zoom-icon">🔍</span>
                                   </div>
                                 </div>
+                                {/* Back design layers thumbnails */}
+                                {item.customDesign.backDesign?.designLayers && item.customDesign.backDesign.designLayers.length > 0 && (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 10 }}>
+                                    {item.customDesign.backDesign.designLayers.map((layer, lIdx) => (
+                                      layer?.data?.url ? (
+                                        <div key={layer.id || `back-layer-${lIdx}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                                          <img
+                                            src={layer.data.url}
+                                            alt={`Back layer ${lIdx + 1}`}
+                                            style={{ width: 60, height: 60, objectFit: 'contain', borderRadius: 6, background: 'var(--panel)', border: '1px solid var(--border)', cursor: 'zoom-in' }}
+                                            onClick={() => openImageZoom(layer.data!.url!)}
+                                          />
+                                          {/* Dimensions label (inches) if metrics available */}
+                                          {(() => {
+                                            const m = findLayerMetrics('back', item, layer.id)
+                                            if (!m) return null
+                                            return (
+                                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                                {m.widthInches.toFixed(2)}" × {m.heightInches.toFixed(2)}"
+                                              </div>
+                                            )
+                                          })()}
+                                          <button
+                                            style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--panel)', cursor: 'pointer' }}
+                                            onClick={() => downloadImage(layer.data!.url!, `back-layer-${lIdx + 1}.png`)}
+                                          >
+                                            Download
+                                          </button>
+                                        </div>
+                                      ) : null
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             )}
                             

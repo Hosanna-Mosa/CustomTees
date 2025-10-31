@@ -72,6 +72,7 @@ interface DesignLayer {
     y: number;
     scale: number;
     rotation: number;
+    dpi?: number;
   };
   cost: number;
 }
@@ -87,6 +88,60 @@ const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const FONTS = ["Arial", "Helvetica", "Times New Roman", "Courier New", "Georgia", "Verdana"];
 // Dynamic pricing: cost derived from rendered object area (in pixels)
 const PRICE_PER_PIXEL = 0.02; // ₹ per pixel area
+const DPI = 300; // standard printing resolution
+const DEFAULT_TEXT_DPI = 300; // default for text layers
+
+// Attempt to extract per-image DPI from underlying HTMLImageElement metadata (EXIF) with fallback
+function getImageDPIFromMeta(imgObject: any): number {
+  try {
+    const originalEl = imgObject?._originalElement || imgObject?._element || imgObject?._image || undefined;
+    if (originalEl && originalEl.naturalWidth) {
+      const exif = (originalEl as any).exifdata;
+      if (exif) {
+        const xRes = exif.XResolution;
+        const yRes = exif.YResolution;
+        const dpi = xRes || yRes;
+        if (typeof dpi === 'number' && isFinite(dpi) && dpi > 0) return dpi;
+        if (typeof dpi === 'object' && dpi?.numerator && dpi?.denominator) {
+          const val = Number(dpi.numerator) / Number(dpi.denominator || 1);
+          if (isFinite(val) && val > 0) return val;
+        }
+      }
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn("Could not extract DPI from image metadata, falling back to default 300 DPI");
+  }
+  return 300; // fallback
+}
+
+// Extract DPI from an uploaded File using EXIF if available; fallback to 300
+async function getImageDPI(file: File): Promise<number> {
+  try {
+    // If EXIF library is available globally, use it
+    const EXIF = (window as any).EXIF;
+    if (EXIF && typeof EXIF.getData === 'function') {
+      return await new Promise<number>((resolve) => {
+        EXIF.getData(file, function () {
+          const xRes = EXIF.getTag(this, 'XResolution');
+          const yRes = EXIF.getTag(this, 'YResolution');
+          const dpi = xRes || yRes;
+          if (typeof dpi === 'number' && isFinite(dpi) && dpi > 0) return resolve(dpi);
+          if (dpi && typeof dpi === 'object' && dpi.numerator && dpi.denominator) {
+            const val = Number(dpi.numerator) / Number(dpi.denominator || 1);
+            if (isFinite(val) && val > 0) return resolve(val);
+          }
+          resolve(300);
+        });
+      });
+    }
+  } catch {}
+  return 300;
+}
+
+// Add at the top, after imports but before component definition
+const MAX_PRINTABLE_WIDTH = 400; // px for mockup display
+const MAX_PRINTABLE_HEIGHT = 400; // px for mockup display
 
 export default function Customize() {
   const { addItemToCart } = useCart();
@@ -109,6 +164,42 @@ export default function Customize() {
   const [designSide, setDesignSide] = useState<"front" | "back">("front");
   const [frontDesignLayers, setFrontDesignLayers] = useState<DesignLayer[]>([]);
   const [backDesignLayers, setBackDesignLayers] = useState<DesignLayer[]>([]);
+  
+  // Metrics for each side (inches and pixels)
+  const [frontDesignMetrics, setFrontDesignMetrics] = useState<{
+    widthInches: number;
+    heightInches: number;
+    areaInches: number;
+    totalPixels: number;
+    perLayer: Array<{
+      id: string;
+      type: string;
+      widthPixels: number;
+      heightPixels: number;
+      areaPixels: number;
+      widthInches: number;
+      heightInches: number;
+      areaInches: number;
+      cost: number;
+    }>;
+  } | null>(null);
+  const [backDesignMetrics, setBackDesignMetrics] = useState<{
+    widthInches: number;
+    heightInches: number;
+    areaInches: number;
+    totalPixels: number;
+    perLayer: Array<{
+      id: string;
+      type: string;
+      widthPixels: number;
+      heightPixels: number;
+      areaPixels: number;
+      widthInches: number;
+      heightInches: number;
+      areaInches: number;
+      cost: number;
+    }>;
+  } | null>(null);
   
   // Use refs to store latest layer state to avoid stale closures
   const frontDesignLayersRef = useRef<DesignLayer[]>([]);
@@ -386,6 +477,7 @@ export default function Customize() {
                 });
                 (text as any).name = "custom-text";
                 (text as any).layerId = layer.id;
+                (text as any).designSide = designSide;
                 fabricCanvas.add(text);
                 // eslint-disable-next-line no-console
                 console.log("[Customize] Added text:", layer.data.content, "at position:", layer.data.x, layer.data.y);
@@ -400,6 +492,7 @@ export default function Customize() {
                   });
                   (img as any).name = "custom-image";
                   (img as any).layerId = layer.id;
+                  (img as any).designSide = designSide;
                   fabricCanvas.add(img);
                   fabricCanvas.renderAll();
                   // eslint-disable-next-line no-console
@@ -563,10 +656,21 @@ export default function Customize() {
 
     const calculateTotalPrice = () => {
       const objects = fabricCanvas.getObjects();
-      let totalArea = 0;
-
-      // Get current layers for the active side
-      const currentLayers = designSide === "front" ? frontDesignLayers : backDesignLayers;
+      let totalAreaPixels = 0;
+      let maxWidthPixels = 0;
+      let maxHeightPixels = 0;
+      const perLayerMetrics: Array<{
+        id: string;
+        type: string;
+        widthPixels: number;
+        heightPixels: number;
+        areaPixels: number;
+        widthInches: number;
+        heightInches: number;
+        areaInches: number;
+        dpi?: number;
+        cost: number;
+      }> = [];
 
       objects.forEach((obj) => {
         // Skip background and base images
@@ -574,39 +678,61 @@ export default function Customize() {
           return;
         }
 
-        // Only calculate area for objects that belong to the current side
-        const layerId = (obj as any).layerId;
-        const belongsToCurrentSide = currentLayers.some(layer => layer.id === layerId);
-        
-        if (!belongsToCurrentSide) {
-          return;
-        }
+        // Only calculate area for the objects belonging to the currently visible side.
+        const objSide = (obj as any).designSide as ("front" | "back" | undefined);
+        if (objSide && objSide !== designSide) return;
 
-        // Calculate area using absolute scaling
-        const scaleX = Math.abs(obj.scaleX || 1);
-        const scaleY = Math.abs(obj.scaleY || 1);
-        
-        // For text objects, use the actual bounding box
-        if (obj.type === 'text' || obj.type === 'textbox') {
-          const bbox = obj.getBoundingRect();
-          totalArea += bbox.width * bbox.height;
-        } else {
-          // For other objects, use width/height with absolute scaling
-          const width = (obj.width || 0) * scaleX;
-          const height = (obj.height || 0) * scaleY;
-          totalArea += width * height;
-        }
+        // Determine per-layer DPI: prefer saved layer DPI; use defaults by type
+        const layerDPI = (obj as any).dpi
+          ? Number((obj as any).dpi)
+          : ((obj.type === 'text' || obj.type === 'textbox') ? DEFAULT_TEXT_DPI : 300);
+
+        // Correct scaled dimensions
+        const widthPixels = typeof (obj as any).getScaledWidth === 'function' ? (obj as any).getScaledWidth() : Math.abs((obj.width || 0) * (obj.scaleX || 1));
+        const heightPixels = typeof (obj as any).getScaledHeight === 'function' ? (obj as any).getScaledHeight() : Math.abs((obj.height || 0) * (obj.scaleY || 1));
+
+        // Pixel area
+        const areaPixels = widthPixels * heightPixels;
+
+        // Convert to inches using actual layer DPI
+        const widthInches = widthPixels / layerDPI;
+        const heightInches = heightPixels / layerDPI;
+        const areaInches = areaPixels / (layerDPI * layerDPI);
+        const cost = areaPixels * PRICE_PER_PIXEL;
+
+        maxWidthPixels = Math.max(maxWidthPixels, widthPixels);
+        maxHeightPixels = Math.max(maxHeightPixels, heightPixels);
+        totalAreaPixels += areaPixels;
+
+        perLayerMetrics.push({
+          id: (obj as any).layerId,
+          type: (obj as any).type as string,
+          widthPixels,
+          heightPixels,
+          areaPixels,
+          widthInches,
+          heightInches,
+          areaInches,
+          dpi: layerDPI,
+          cost,
+        });
       });
 
-      const customizationCost = totalArea * PRICE_PER_PIXEL;
+      // Overall metrics using fixed 300 DPI for bounding box
+      const widthInches = maxWidthPixels / 300;
+      const heightInches = maxHeightPixels / 300;
+      const areaInches = totalAreaPixels / (300 * 300);
+      const customizationCost = totalAreaPixels * PRICE_PER_PIXEL;
       
       // Update the appropriate side's customization cost
       if (designSide === "front") {
         setFrontCustomizationCost(customizationCost);
-        console.log(`[Pricing] Front side - Total area: ${totalArea.toFixed(2)}px, customization cost: ₹${customizationCost.toFixed(2)}`);
+        setFrontDesignMetrics({ widthInches, heightInches, areaInches, totalPixels: totalAreaPixels, perLayer: perLayerMetrics });
+        console.log(`[Pricing-front] Total pixels: ${totalAreaPixels.toFixed(2)}px², Area: ${areaInches.toFixed(2)} in², Size: ${widthInches.toFixed(2)}" x ${heightInches.toFixed(2)}", Cost: ₹${customizationCost.toFixed(2)}`);
       } else {
         setBackCustomizationCost(customizationCost);
-        console.log(`[Pricing] Back side - Total area: ${totalArea.toFixed(2)}px, customization cost: ₹${customizationCost.toFixed(2)}`);
+        setBackDesignMetrics({ widthInches, heightInches, areaInches, totalPixels: totalAreaPixels, perLayer: perLayerMetrics });
+        console.log(`[Pricing-back] Total pixels: ${totalAreaPixels.toFixed(2)}px², Area: ${areaInches.toFixed(2)} in², Size: ${widthInches.toFixed(2)}" x ${heightInches.toFixed(2)}", Cost: ₹${customizationCost.toFixed(2)}`);
       }
     };
 
@@ -838,6 +964,7 @@ export default function Customize() {
       });
       (text as any).name = "custom-text";
       (text as any).layerId = `text-${Date.now()}`;
+      (text as any).designSide = designSide;
 
       fabricCanvas.add(text);
       fabricCanvas.setActiveObject(text);
@@ -866,56 +993,65 @@ export default function Customize() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!fabricCanvas || !e.target.files?.[0]) return;
-
-    const file = e.target.files[0];
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !fabricCanvas) return;
+  
+    // ✅ Get real DPI
+    const dpi = await getImageDPI(file);
+  
     const reader = new FileReader();
-
-    reader.onload = (event) => {
-      const imgUrl = event.target?.result as string;
-      
-      FabricImage.fromURL(imgUrl).then((img) => {
-        img.scale(0.3);
+    reader.onload = async (f) => {
+      const data = f.target?.result as string;
+      FabricImage.fromURL(data).then((img) => {
+        // --- Visual fit logic ---
+        const iw = img.width || 1;
+        const ih = img.height || 1;
+        let scale = 1;
+        if (iw > MAX_PRINTABLE_WIDTH || ih > MAX_PRINTABLE_HEIGHT) {
+          scale = Math.min(MAX_PRINTABLE_WIDTH / iw, MAX_PRINTABLE_HEIGHT / ih);
+        }
         img.set({
           left: 200,
-          top: 250,
+          top: 200,
+          scaleX: scale, // visually fit
+          scaleY: scale,
+          selectable: true,
+          hasControls: true,
         });
         (img as any).name = "custom-image";
-        (img as any).layerId = `image-${Date.now()}`;
-        
+        (img as any).layerId = Date.now().toString();
+        (img as any).dpi = dpi; // ✅ Store per image DPI
+        (img as any).designSide = designSide;
+  
         fabricCanvas.add(img);
         fabricCanvas.setActiveObject(img);
         fabricCanvas.renderAll();
-
-        if (transparentBgEnabled) {
-          applyTransparentBgToActiveImage(true);
-        }
-
-        // Add to design layers
-        const layer: DesignLayer = {
+  
+        const newLayer: DesignLayer = {
           id: (img as any).layerId,
           type: "image",
           data: {
-            url: imgUrl,
-            x: 200,
-            y: 250,
-            scale: 0.3,
-            rotation: 0,
+            url: data,
+            x: img.left!,
+            y: img.top!,
+            scale: img.scaleX!,
+            rotation: img.angle || 0,
+            dpi: dpi, // ✅ Save DPI in layer state
           },
           cost: selectedProduct?.customizationPricing?.perImageLayer || 20,
         };
-        setDesignLayers([...designLayers, layer]);
-
-        toast.success("Image uploaded! Drag to reposition.");
+  
+        if (designSide === "front") {
+          setFrontDesignLayers((prev) => [...prev, newLayer]);
+        } else {
+          setBackDesignLayers((prev) => [...prev, newLayer]);
+        }
       });
     };
-
     reader.readAsDataURL(file);
-    
-    // Reset the file input to allow selecting the same file again
-    e.target.value = '';
   };
+  
 
   const handleDeleteSelected = () => {
     if (!fabricCanvas) return;
@@ -1035,8 +1171,8 @@ export default function Customize() {
       const updatedBackLayers = designSide === 'back' ? syncLayersFromCanvas(backDesignLayers) : backDesignLayers;
 
       const currentDesignData = fabricCanvas.toJSON();
-      
-      // Compress the preview image to reduce size and avoid MongoDB BSON limit
+
+      // Helper: compress a dataURL png/jpeg
       const compressImage = (dataUrl: string, quality: number = 0.7): Promise<string> => {
         return new Promise<string>((resolve) => {
           const canvas = document.createElement('canvas');
@@ -1065,14 +1201,86 @@ export default function Customize() {
           img.src = dataUrl;
         });
       };
-      
-      const currentPreviewImage = await compressImage(
-        fabricCanvas.toDataURL({ format: "png", quality: 1, multiplier: 2 }),
-        0.6 // Lower quality for smaller size
-      );
-      
-      console.log('[Customize] Preview image generated:', currentPreviewImage.substring(0, 100) + '...');
-      
+
+      // Generate preview images for both sides regardless of current side
+      const generatePreviewForSide = async (side: "front" | "back") => {
+        // If we're currently on this side, take directly from current canvas
+        if (side === designSide) {
+          const dataUrl = fabricCanvas.toDataURL({ format: "png", quality: 1, multiplier: 2 });
+          return compressImage(dataUrl, 0.6);
+        }
+
+        const targetLayers = side === 'front' ? updatedFrontLayers : updatedBackLayers;
+        // Create a temporary canvas to render that side
+        const tempCanvasEl = document.createElement('canvas');
+        tempCanvasEl.width = 500;
+        tempCanvasEl.height = 600;
+        const tempCanvas = new FabricCanvas(tempCanvasEl, { width: 500, height: 600, backgroundColor: 'transparent' });
+
+        // Base product image for that side
+        if (selectedProduct && selectedColor) {
+          const variant = selectedProduct.variants.find((v) => v.color === selectedColor);
+          const imgUrl = variant ? pickVariantImageForSide(variant, side) : undefined;
+          if (imgUrl) {
+            try {
+              const baseImg = await FabricImage.fromURL(imgUrl, { crossOrigin: 'anonymous' });
+              baseImg.set({ selectable: false, evented: false });
+              const canvasW = 500; const canvasH = 600;
+              const scaleX = canvasW / (baseImg.width || canvasW);
+              const scaleY = canvasH / (baseImg.height || canvasH);
+              const scale = Math.max(scaleX, scaleY);
+              baseImg.scale(scale);
+              const newW = (baseImg.width || 0) * scale;
+              const newH = (baseImg.height || 0) * scale;
+              baseImg.set({ left: (canvasW - newW) / 2, top: (canvasH - newH) / 2 });
+              (baseImg as any).name = 'tshirt-base-photo';
+              tempCanvas.add(baseImg);
+              tempCanvas.sendObjectToBack(baseImg);
+            } catch {}
+          }
+        }
+
+        // Add layers
+        const imagePromises: Promise<any>[] = [];
+        targetLayers.forEach((layer) => {
+          if (layer.type === 'text') {
+            const t = new FabricText(layer.data.content || '', {
+              left: layer.data.x,
+              top: layer.data.y,
+              fontSize: layer.data.size,
+              fill: layer.data.color,
+              fontFamily: layer.data.font,
+              angle: layer.data.rotation,
+              scaleX: layer.data.scale,
+              scaleY: layer.data.scale,
+            });
+            (t as any).name = 'custom-text';
+            (t as any).layerId = layer.id;
+            tempCanvas.add(t);
+          } else if (layer.type === 'image' && layer.data.url) {
+            imagePromises.push(
+              FabricImage.fromURL(layer.data.url).then((img) => {
+                img.set({ left: layer.data.x, top: layer.data.y, angle: layer.data.rotation, scaleX: layer.data.scale, scaleY: layer.data.scale });
+                (img as any).name = 'custom-image';
+                (img as any).layerId = layer.id;
+                tempCanvas.add(img);
+                return img;
+              })
+            );
+          }
+        });
+
+        await Promise.all(imagePromises);
+        tempCanvas.renderAll();
+        const dataUrl = tempCanvas.toDataURL({ format: 'png', quality: 1, multiplier: 2 });
+        tempCanvas.dispose();
+        tempCanvasEl.remove();
+        return compressImage(dataUrl, 0.6);
+      };
+
+      const frontPreviewImage = await generatePreviewForSide('front');
+      const backPreviewImage = await generatePreviewForSide('back');
+
       // Prepare cart item data
       const cartItem = {
         productId: selectedProduct._id,
@@ -1083,12 +1291,14 @@ export default function Customize() {
         frontDesign: {
           designData: currentDesignData,
           designLayers: updatedFrontLayers,
-          previewImage: currentPreviewImage,
+          previewImage: frontPreviewImage,
+          metrics: frontDesignMetrics,
         },
         backDesign: {
-          designData: null, // Will be updated when back design is complete
+          designData: currentDesignData,
           designLayers: updatedBackLayers,
-          previewImage: null,
+          previewImage: backPreviewImage,
+          metrics: backDesignMetrics,
         },
         basePrice,
         frontCustomizationCost,
@@ -1096,7 +1306,7 @@ export default function Customize() {
         totalPrice,
         quantity: 1,
       };
-      
+
       // Check if cart item is too large for MongoDB (16MB limit)
       const cartItemSize = JSON.stringify(cartItem).length;
       console.log("[Customize] Cart item size:", cartItemSize, "bytes");
@@ -1354,6 +1564,52 @@ export default function Customize() {
     );
   };
 
+  // ---- At top inside Customize() ----
+  const [activeLayerMetric, setActiveLayerMetric] = useState<any>(null);
+  const [activeLayerType, setActiveLayerType] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!fabricCanvas) return;
+    const updateActiveLayerMetric = () => {
+      const activeObject = fabricCanvas.getActiveObject();
+      let selectedId = null;
+      let selectedType = null;
+      let metrics = designSide === "front" ? frontDesignMetrics : backDesignMetrics;
+      let layerMetric = null;
+      if (activeObject) {
+        selectedId = (activeObject as any).layerId;
+        selectedType = (activeObject as any).name;
+        if (selectedId && metrics && metrics.perLayer) {
+          layerMetric = metrics.perLayer.find((l) => l.id === selectedId);
+        }
+      }
+      setActiveLayerMetric(layerMetric);
+      setActiveLayerType(selectedType);
+    };
+
+    // Listen to relevant canvas events
+    fabricCanvas.on("selection:created", updateActiveLayerMetric);
+    fabricCanvas.on("selection:updated", updateActiveLayerMetric);
+    fabricCanvas.on("selection:cleared", updateActiveLayerMetric);
+    fabricCanvas.on("object:modified", updateActiveLayerMetric);
+    fabricCanvas.on("object:scaling", updateActiveLayerMetric);
+    fabricCanvas.on("object:moving", updateActiveLayerMetric);
+    // Also update on metrics change (handler below will trigger this effect)
+
+    // Initial effect call
+    updateActiveLayerMetric();
+
+    return () => {
+      fabricCanvas.off("selection:created", updateActiveLayerMetric);
+      fabricCanvas.off("selection:updated", updateActiveLayerMetric);
+      fabricCanvas.off("selection:cleared", updateActiveLayerMetric);
+      fabricCanvas.off("object:modified", updateActiveLayerMetric);
+      fabricCanvas.off("object:scaling", updateActiveLayerMetric);
+      fabricCanvas.off("object:moving", updateActiveLayerMetric);
+    };
+  }, [fabricCanvas, frontDesignMetrics, backDesignMetrics, designSide]);
+  // ---- End top ----
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -1590,6 +1846,25 @@ export default function Customize() {
             <div className="rounded-lg border bg-muted/30 p-4 shadow-lg">
                     <canvas ref={canvasElRef} className="max-w-full" />
             </div>
+            {activeLayerMetric && (
+              <div
+                style={{
+                  textAlign: 'center',
+                  marginTop: '0.5rem',
+                  fontWeight: 500,
+                  fontSize: '1.1rem',
+                  letterSpacing: '0.5px',
+                  color: '#262626',
+                  background: 'rgba(255,255,255,0.82)',
+                  borderRadius: '6px',
+                  display: 'inline-block',
+                  padding: '2px 12px',
+                  boxShadow: '0 1px 4px 0 rgba(0,0,0,0.03)',
+                }}
+              >
+                Size: {activeLayerMetric.widthInches.toFixed(2)}″ × {activeLayerMetric.heightInches.toFixed(2)}″
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-2 justify-center">
               <Button variant="outline" size="sm" onClick={handleRotate}>
