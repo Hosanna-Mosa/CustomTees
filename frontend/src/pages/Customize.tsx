@@ -477,6 +477,7 @@ export default function Customize() {
                 });
                 (text as any).name = "custom-text";
                 (text as any).layerId = layer.id;
+                (text as any).designSide = designSide;
                 fabricCanvas.add(text);
                 // eslint-disable-next-line no-console
                 console.log("[Customize] Added text:", layer.data.content, "at position:", layer.data.x, layer.data.y);
@@ -491,6 +492,7 @@ export default function Customize() {
                   });
                   (img as any).name = "custom-image";
                   (img as any).layerId = layer.id;
+                  (img as any).designSide = designSide;
                   fabricCanvas.add(img);
                   fabricCanvas.renderAll();
                   // eslint-disable-next-line no-console
@@ -670,27 +672,19 @@ export default function Customize() {
         cost: number;
       }> = [];
 
-      // Get current layers for the active side
-      const currentLayers = designSide === "front" ? frontDesignLayers : backDesignLayers;
-
       objects.forEach((obj) => {
         // Skip background and base images
         if (!obj.selectable || (obj as any).name === "tshirt-base" || (obj as any).name === "tshirt-base-photo" || (obj as any).name === "bg-photo") {
           return;
         }
 
-        // Only calculate area for objects that belong to the current side
-        const layerId = (obj as any).layerId;
-        const belongsToCurrentSide = currentLayers.some(layer => layer.id === layerId);
-        
-        if (!belongsToCurrentSide) {
-          return;
-        }
+        // Only calculate area for the objects belonging to the currently visible side.
+        const objSide = (obj as any).designSide as ("front" | "back" | undefined);
+        if (objSide && objSide !== designSide) return;
 
         // Determine per-layer DPI: prefer saved layer DPI; use defaults by type
-        const layer = currentLayers.find(l => l.id === layerId);
-        const layerDPI = (layer && (layer as any).data && (layer as any).data.dpi)
-          ? (layer as any).data.dpi as number
+        const layerDPI = (obj as any).dpi
+          ? Number((obj as any).dpi)
           : ((obj.type === 'text' || obj.type === 'textbox') ? DEFAULT_TEXT_DPI : 300);
 
         // Correct scaled dimensions
@@ -970,6 +964,7 @@ export default function Customize() {
       });
       (text as any).name = "custom-text";
       (text as any).layerId = `text-${Date.now()}`;
+      (text as any).designSide = designSide;
 
       fabricCanvas.add(text);
       fabricCanvas.setActiveObject(text);
@@ -1027,6 +1022,7 @@ export default function Customize() {
         (img as any).name = "custom-image";
         (img as any).layerId = Date.now().toString();
         (img as any).dpi = dpi; // ✅ Store per image DPI
+        (img as any).designSide = designSide;
   
         fabricCanvas.add(img);
         fabricCanvas.setActiveObject(img);

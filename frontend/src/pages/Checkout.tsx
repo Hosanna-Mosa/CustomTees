@@ -43,10 +43,12 @@ export default function Checkout() {
       const addresses = res.data?.addresses || []
       setUserAddresses(addresses)
       
-      // Auto-select default address if available
+      // Auto-select default address if available; otherwise if there is exactly one address, select it
       const defaultAddr = addresses.find((addr: any) => addr.isDefault)
       if (defaultAddr) {
         setSelectedAddressId(defaultAddr._id)
+      } else if (addresses.length === 1) {
+        setSelectedAddressId(addresses[0]._id)
       }
     }).catch(() => {
       // User might not be logged in, that's okay
@@ -60,7 +62,18 @@ export default function Checkout() {
   async function placeOrder() {
     if (cartItems.length === 0 || !selectedAddressId) return
     
-    const selectedAddress = userAddresses.find(addr => addr._id === selectedAddressId)
+    // Try to find the selected address from our cached list; if missing (e.g., just added), refetch once
+    let selectedAddress = userAddresses.find(addr => addr._id === selectedAddressId)
+    if (!selectedAddress) {
+      try {
+        const res = await getMe()
+        const refreshedAddresses = (res as any).data?.addresses || []
+        setUserAddresses(refreshedAddresses)
+        selectedAddress = refreshedAddresses.find((addr: any) => addr._id === selectedAddressId) || null
+      } catch (_) {
+        // ignore, we'll handle error below
+      }
+    }
     if (!selectedAddress) {
       setErr('Please select a valid shipping address')
       return
