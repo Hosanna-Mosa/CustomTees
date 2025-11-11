@@ -82,12 +82,10 @@ export const createProduct = async (req, res) => {
       }
     }
 
-    // Validate at least one variant and one image
-    if (!variants.length || variants.every((v) => !v.images?.length)) {
-      return res.status(400).json({
-        success: false,
-        message: 'At least one variant with images is required',
-      });
+    // Allow creating a product without variants/images.
+    // Variants can be added later via the "Manage Variants" flow.
+    if (!Array.isArray(variants)) {
+      variants = [];
     }
 
     // 🧠 Handle design template if customization is enabled
