@@ -98,6 +98,12 @@ export const createOrderFromCart = async (orderData: any) => {
   return request('/orders/from-cart', { method: 'POST', body: orderData });
 };
 
+// Settings
+export const getSettings = async () => {
+  const res = await request('/settings');
+  return (res as any).data;
+};
+
 export const adminAddProduct = async (form: FormData) => {
   return request('/products', { method: 'POST', body: form, isForm: true });
 };

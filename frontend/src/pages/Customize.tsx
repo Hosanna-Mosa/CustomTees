@@ -191,7 +191,24 @@ export default function Customize() {
   const { addItemToCart } = useCart();
   const location = useLocation() as any;
   // Step management
-  const [step, setStep] = useState<Step>("category");
+  const [step, setStep] = useState<Step>("product");
+  useEffect(() => {
+    const load = async () => {
+      if (step === "product" && products.length === 0) {
+        setLoading(true);
+        try {
+          const allProducts = await fetchProducts();
+          setProducts(allProducts);
+        } catch {
+          toast.error("Failed to load products");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
   
   // Data state
   const [products, setProducts] = useState<Product[]>([]);
@@ -609,6 +626,13 @@ export default function Customize() {
       fabricCanvas.requestRenderAll();
     }
   }, [fontSize, textColor, selectedFont, fabricCanvas]);
+
+  // Always keep canvas transparent so product background image is visible
+  useEffect(() => {
+    if (!fabricCanvas) return;
+    (fabricCanvas as any).backgroundColor = "transparent";
+    fabricCanvas.renderAll();
+  }, [fabricCanvas]);
 
   // Continuous position sync - update layer positions when objects move
   useEffect(() => {
@@ -1930,12 +1954,14 @@ export default function Customize() {
                 <CardContent className="p-8">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-semibold">
-                      {selectedCategory?.name} - Select a Product
+                      {selectedCategory?.name ? `${selectedCategory.name} - ` : ""}Select a Product
                     </h2>
-                    <Button variant="outline" onClick={handleBack}>
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
-                    </Button>
+                    {selectedCategory && (
+                      <Button variant="outline" onClick={handleBack}>
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back
+                      </Button>
+                    )}
                   </div>
                   {loading ? (
                     <div className="text-center py-12">Loading products...</div>
@@ -2112,8 +2138,8 @@ export default function Customize() {
 
           {/* Center - Canvas */}
           <div className="flex flex-col items-center gap-4">
-            <div className="rounded-lg border bg-muted/30 p-4 shadow-lg">
-                    <canvas ref={canvasElRef} className="max-w-full" />
+            <div className="rounded-lg border p-4 shadow-lg bg-muted/30">
+                    <canvas ref={canvasElRef} className="max-w-full bg-transparent" />
             </div>
             {activeLayerMetric && (
               <div
@@ -2331,6 +2357,14 @@ export default function Customize() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {selectedProduct?.description && (
+          <div className="mt-6">
+            <div className="max-w-3xl mx-auto text-sm text-muted-foreground leading-relaxed">
+              {selectedProduct.description}
+            </div>
+          </div>
+        )}
       </div>
 
       <Footer />

@@ -11,6 +11,7 @@ import authRoutes from './src/routes/auth.routes.js';
 import productRoutes from './src/routes/product.routes.js';
 import adminRoutes from './src/routes/admin.routes.js';
 import orderRoutes from './src/routes/order.routes.js';
+import settingRoutes from './src/routes/setting.routes.js';
 import { notFound, errorHandler } from './src/middlewares/error.middleware.js';
 
 dotenv.config();
@@ -42,6 +43,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/settings', settingRoutes);
 
 
 app.get('/api/health', (req, res) => res.json({ success: true, message: 'OK' }));

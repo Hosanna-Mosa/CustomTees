@@ -82,6 +82,8 @@ export function Products() {
     front: false,
     back: false
   })
+  const [descEditingId, setDescEditingId] = useState<string | null>(null)
+  const [descText, setDescText] = useState<string>('')
 
   useEffect(() => {
     loadProducts()
@@ -140,6 +142,22 @@ export function Products() {
       setError(e.message)
     } finally {
       setDeleting(null)
+    }
+  }
+
+  const startEditDescription = (p: Product) => {
+    setDescEditingId(p._id)
+    setDescText(p.description || '')
+  }
+
+  const saveDescription = async (productId: string) => {
+    try {
+      await api.updateProduct(productId, { description: descText })
+      setProducts(products.map(p => p._id === productId ? { ...p, description: descText } : p))
+      setDescEditingId(null)
+      setDescText('')
+    } catch (e: any) {
+      setError(e.message)
     }
   }
 
@@ -562,6 +580,32 @@ export function Products() {
                   <span className="label">Created:</span>
                   <span className="value">{formatDate(product.createdAt)}</span>
                 </div>
+
+                <div className="detail-row">
+                  <span className="label">Description:</span>
+                  <span className="value">{product.description ? product.description.substring(0, 80) + (product.description.length > 80 ? '…' : '') : '—'}</span>
+                </div>
+
+                <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="primary" onClick={() => startEditDescription(product)}>Add Description</button>
+                </div>
+
+                {descEditingId === product._id && (
+                  <div className="card" style={{ marginTop: 8 }}>
+                    <label>
+                      Product Description
+                      <textarea
+                        value={descText}
+                        onChange={(e) => setDescText(e.target.value)}
+                        style={{ width: '100%', minHeight: 100, borderRadius: 8, border: '1px solid var(--border)', padding: 10 }}
+                      />
+                    </label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="primary" onClick={() => saveDescription(product._id)}>Save</button>
+                      <button className="primary" onClick={() => setDescEditingId(null)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Variants Section */}
