@@ -7,9 +7,12 @@ function getAuthToken(): string | null {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const isFormData = options.body instanceof FormData
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> | undefined),
+  }
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json'
   }
 
   const token = getAuthToken()
@@ -84,6 +87,11 @@ export const api = {
 
   // Designs
   getDesigns: (page: number = 1) => request<{ success: boolean; data: any[]; pagination: any }>(`/admin/designs?page=${page}`),
+
+  // Settings
+  getSettings: () => request<{ success: boolean; data: any }>(`/settings`),
+  updateSettings: (form: FormData) =>
+    request<{ success: boolean; data: any }>(`/settings`, { method: 'PUT', body: form, isForm: true }),
 }
 
 export default api

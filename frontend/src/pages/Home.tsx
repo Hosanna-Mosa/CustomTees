@@ -4,8 +4,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Truck, Clock, Shield, Star } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { useEffect, useState } from "react";
+import { getSettings } from "@/lib/api";
 
 export default function Home() {
+  const [settings, setSettings] = useState<any | null>(null);
+  useEffect(() => {
+    getSettings().then(setSettings).catch(() => {});
+  }, []);
   const benefits = [
     {
       icon: Truck,
@@ -50,7 +56,10 @@ export default function Home() {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-accent/10">
+      <section
+        className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-accent/10"
+        style={settings?.homeBackground?.url ? { backgroundImage: `url(${settings.homeBackground.url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+      >
         <div className="container mx-auto px-4 py-12 sm:py-20 lg:py-32">
           <div className="grid gap-8 lg:grid-cols-2 lg:gap-8 items-center">
             <div className="space-y-6 sm:space-y-8">
@@ -100,7 +109,7 @@ export default function Home() {
             <div className="relative order-first lg:order-last">
               <div className="relative aspect-square overflow-hidden rounded-2xl bg-muted shadow-2xl">
                 <img
-                  src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop"
+                  src={settings?.homePoster?.url || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop"}
                   alt="Custom t-shirts"
                   className="h-full w-full object-cover"
                 />

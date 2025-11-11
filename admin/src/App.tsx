@@ -9,6 +9,7 @@ import { Orders } from './pages/Orders'
 import { Users } from './pages/Users'
 import { Settings } from './pages/Settings'
 import { Designs } from './pages/Designs'
+import { HomeSettings } from './pages/HomeSettings'
 import { AdminLayout } from './components/AdminLayout'
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="orders" element={<Orders />} />
           <Route path="users" element={<Users />} />
           <Route path="designs" element={<Designs />} />
+          <Route path="home" element={<HomeSettings />} />
           <Route path="settings" element={<Settings />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
