@@ -1,17 +1,23 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Truck, Clock, Shield, Star } from "lucide-react";
+import { ArrowRight, Truck, Clock, Star } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useEffect, useState } from "react";
-import { getSettings } from "@/lib/api";
+import { getSettings, fetchProducts } from "@/lib/api";
 
 export default function Home() {
   const [settings, setSettings] = useState<any | null>(null);
+  const [products, setProducts] = useState<any[]>([]);
+  
   useEffect(() => {
     getSettings().then(setSettings).catch(() => {});
+    fetchProducts()
+      .then((data) => setProducts(data.slice(0, 4))) // Get first 4 products
+      .catch(() => setProducts([]));
   }, []);
+  
   const benefits = [
     {
       icon: Truck,
@@ -22,11 +28,6 @@ export default function Home() {
       icon: Clock,
       title: "Fast Turnaround",
       description: "Rush options available",
-    },
-    {
-      icon: Shield,
-      title: "100% Satisfaction",
-      description: "Money-back guarantee",
     },
   ];
 
@@ -89,7 +90,7 @@ export default function Home() {
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-6 sm:pt-8 border-t">
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 pt-6 sm:pt-8 border-t">
                 <div className="text-center sm:text-left">
                   <div className="text-2xl sm:text-3xl font-bold text-primary">10M+</div>
                   <div className="text-xs sm:text-sm text-muted-foreground">Happy Customers</div>
@@ -97,10 +98,6 @@ export default function Home() {
                 <div className="text-center sm:text-left">
                   <div className="text-2xl sm:text-3xl font-bold text-primary">24/7</div>
                   <div className="text-xs sm:text-sm text-muted-foreground">Support</div>
-                </div>
-                <div className="text-center sm:text-left">
-                  <div className="text-2xl sm:text-3xl font-bold text-primary">100%</div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">Satisfaction</div>
                 </div>
               </div>
             </div>
@@ -129,22 +126,23 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Benefits */}
-      <section className="border-y bg-primary/5 py-6 sm:py-8">
+      {/* CTA Section */}
+      <section className="py-12 sm:py-20">
         <div className="container mx-auto px-4">
-          <div className="grid gap-6 sm:gap-8 md:grid-cols-3">
-            {benefits.map((benefit, index) => (
-              <div key={index} className="flex items-center gap-3 sm:gap-4">
-                <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <benefit.icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm sm:text-base">{benefit.title}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">{benefit.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Card className="overflow-hidden border-0 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
+            <CardContent className="p-6 sm:p-12 text-center">
+              <h2 className="mb-4 text-2xl sm:text-3xl font-bold">Ready to Design Your Custom T-Shirts?</h2>
+              <p className="mb-6 sm:mb-8 text-base sm:text-lg opacity-90">
+                Start creating your perfect design in minutes with our easy-to-use design tool.
+              </p>
+              <Link to="/customize">
+                <Button size="lg" variant="secondary" className="shadow-lg">
+                  Start Designing Now
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
@@ -159,25 +157,45 @@ export default function Home() {
           </div>
 
           <div className="grid gap-4 sm:gap-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
-            {["T-Shirts", "Hoodies", "Polo Shirts", "Hats"].map((product, index) => (
-              <Card key={index} className="group hover-lift cursor-pointer overflow-hidden">
-                <div className="aspect-square overflow-hidden bg-muted">
-                  <img
-                    src={`https://images.unsplash.com/photo-${
-                      index === 0 ? "1521572163474" :
-                      index === 1 ? "1556821011-f6b8af2ab3" :
-                      index === 2 ? "1596755094514" : "1588850561407"
-                    }-6864f9cf17ab?w=400&h=400&fit=crop`}
-                    alt={product}
-                    className="h-full w-full object-cover transition-transform group-hover:scale-110"
-                  />
-                </div>
-                <CardContent className="p-3 sm:p-4">
-                  <h3 className="font-semibold text-sm sm:text-base">{product}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">From $12.99</p>
-                </CardContent>
-              </Card>
-            ))}
+            {products.length > 0 ? (
+              products.map((product) => (
+                <Link key={product._id} to={`/customize`} state={{ productId: product._id }}>
+                  <Card className="group hover-lift cursor-pointer overflow-hidden">
+                    <div className="aspect-square overflow-hidden bg-muted">
+                      <img
+                        src={product.variants?.[0]?.images?.[0]?.url || product.variants?.[0]?.frontImages?.[0]?.url || "https://via.placeholder.com/400"}
+                        alt={product.name}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-110"
+                      />
+                    </div>
+                    <CardContent className="p-3 sm:p-4">
+                      <h3 className="font-semibold text-sm sm:text-base">{product.name}</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground">₹{product.price.toFixed(2)}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))
+            ) : (
+              ["T-Shirts", "Hoodies", "Polo Shirts", "Hats"].map((product, index) => (
+                <Card key={index} className="group hover-lift cursor-pointer overflow-hidden">
+                  <div className="aspect-square overflow-hidden bg-muted">
+                    <img
+                      src={`https://images.unsplash.com/photo-${
+                        index === 0 ? "1521572163474" :
+                        index === 1 ? "1556821011-f6b8af2ab3" :
+                        index === 2 ? "1596755094514" : "1588850561407"
+                      }-6864f9cf17ab?w=400&h=400&fit=crop`}
+                      alt={product}
+                      className="h-full w-full object-cover transition-transform group-hover:scale-110"
+                    />
+                  </div>
+                  <CardContent className="p-3 sm:p-4">
+                    <h3 className="font-semibold text-sm sm:text-base">{product}</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">From $12.99</p>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
 
           <div className="mt-8 text-center">
@@ -222,26 +240,40 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-12 sm:py-20">
+      {/* Stats Section */}
+      <section className="py-12 sm:py-20 bg-primary/5">
         <div className="container mx-auto px-4">
-          <Card className="overflow-hidden border-0 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-            <CardContent className="p-6 sm:p-12 text-center">
-              <h2 className="mb-4 text-2xl sm:text-3xl font-bold">Ready to Design Your Custom T-Shirts?</h2>
-              <p className="mb-6 sm:mb-8 text-base sm:text-lg opacity-90">
-                Start creating your perfect design in minutes with our easy-to-use design tool.
-              </p>
-              <Link to="/customize">
-                <Button size="lg" variant="secondary" className="shadow-lg">
-                  Start Designing Now
-                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-2 gap-8 sm:gap-12 max-w-2xl mx-auto text-center">
+            <div>
+              <div className="text-4xl sm:text-5xl font-bold text-primary mb-2">10M+</div>
+              <div className="text-sm sm:text-base text-muted-foreground">Happy Customers</div>
+            </div>
+            <div>
+              <div className="text-4xl sm:text-5xl font-bold text-primary mb-2">24/7</div>
+              <div className="text-sm sm:text-base text-muted-foreground">Support</div>
+            </div>
+          </div>
         </div>
       </section>
 
+      {/* Benefits */}
+      <section className="border-y bg-primary/5 py-6 sm:py-8">
+        <div className="container mx-auto px-4">
+          <div className="grid gap-6 sm:gap-8 md:grid-cols-2 max-w-2xl mx-auto">
+            {benefits.map((benefit, index) => (
+              <div key={index} className="flex items-center gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <benefit.icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm sm:text-base">{benefit.title}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{benefit.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
       <Footer />
     </div>
   );
