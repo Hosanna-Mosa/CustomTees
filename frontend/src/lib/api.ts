@@ -1,4 +1,7 @@
-const BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8000/api';
+const renderUrl = 'https://c-t-back.onrender.com/api';
+const local = "http://localhost:8000/api";
+
+const BASE = true ? local : renderUrl;
 
 type Method = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
