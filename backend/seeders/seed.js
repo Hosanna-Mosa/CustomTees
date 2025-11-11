@@ -168,6 +168,91 @@ const createImageLayer = (imageUrl, x, y, options = {}) => ({
   }
 });
 
+const prettifyColorName = (input) => {
+  if (!input) return '';
+  return input
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const generateColorCode = (name) => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const color = (hash & 0x00ffffff).toString(16).toUpperCase();
+  return `#${'000000'.substring(0, 6 - color.length)}${color}`;
+};
+
+const loadVariantsFromUploads = async (subFolder) => {
+  const folderPath = path.join(__dirname, 'uploads', subFolder);
+  if (!fs.existsSync(folderPath)) {
+    console.warn(`⚠️  Uploads folder not found for ${subFolder}`);
+    return [];
+  }
+
+  const files = fs.readdirSync(folderPath).filter((file) => /\.(jpg|jpeg|png|webp)$/i.test(file));
+  const variantsMap = new Map();
+
+  for (const fileName of files) {
+    const baseName = fileName.replace(/\.(jpg|jpeg|png|webp)$/i, '');
+    const lowerName = baseName.toLowerCase();
+
+    let side = null;
+    let colorPart = baseName;
+
+    const frontIdx = lowerName.indexOf('front');
+    const backIdx = lowerName.indexOf('back');
+
+    if (frontIdx !== -1) {
+      side = 'front';
+      colorPart = baseName.slice(0, frontIdx);
+    } else if (backIdx !== -1) {
+      side = 'back';
+      colorPart = baseName.slice(0, backIdx);
+    } else {
+      console.warn(`⚠️  Unable to determine side (front/back) for ${fileName}. Skipping.`);
+      continue;
+    }
+
+    colorPart = colorPart.replace(/^kids[-_]/i, '').replace(/[-_]+$/g, '');
+    const colorKey = colorPart.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const displayName = prettifyColorName(colorPart);
+
+    if (!colorKey) {
+      console.warn(`⚠️  Invalid color name parsed from ${fileName}. Skipping.`);
+      continue;
+    }
+
+    const filePath = path.join(folderPath, fileName);
+    console.log(`☁️  Uploading kids variant image: ${fileName}`);
+    const uploaded = await uploadImage(filePath);
+
+    if (!variantsMap.has(colorKey)) {
+      variantsMap.set(colorKey, {
+        color: displayName,
+        colorCode: generateColorCode(colorKey),
+        images: [],
+        frontImages: [],
+        backImages: []
+      });
+    }
+
+    const variant = variantsMap.get(colorKey);
+    variant.images.push(uploaded);
+    if (side === 'front') {
+      variant.frontImages.push(uploaded);
+    } else {
+      variant.backImages.push(uploaded);
+    }
+  }
+
+  return Array.from(variantsMap.values());
+};
+
 // Function to create sample products with uploaded images
 const createSampleProducts = async () => {
   console.log('🎨 Creating sample products with Cloudinary uploads...');
@@ -177,7 +262,7 @@ const createSampleProducts = async () => {
   const previewUrl = await uploadPreviewImage();
   
   // Create variants with uploaded images
-  const variants = await Promise.all([
+  const adultVariants = await Promise.all([
     
     createVariant('red', '#DC2626'),
     createVariant('sport-grey', '#6B7280'),
@@ -185,8 +270,8 @@ const createSampleProducts = async () => {
     createVariant('safety-green', '#16A34A'),
 
   ]);
-  
-  return [
+
+  const products = [
     {
       name: 'Classic Cotton T-Shirt',
       description: 'Soft, comfortable 100% cotton t-shirt perfect for everyday wear. Pre-shrunk and machine washable.',
@@ -195,7 +280,7 @@ const createSampleProducts = async () => {
       stock: 100,
       customizable: true,
       customizationType: 'both',
-      variants,
+      variants: adultVariants,
       designTemplate: {
         type: 'predefined',
         layers: [
@@ -221,6 +306,25 @@ const createSampleProducts = async () => {
       }
     }
   ];
+
+  const kidsVariants = await loadVariantsFromUploads('kids');
+  if (kidsVariants.length) {
+    products.push({
+      name: 'Kids T-Shirts',
+      description: 'Bright, durable tees sized perfectly for kids. Double-stitched seams and vibrant colors to withstand everyday adventures.',
+      price: 1499,
+      sizes: ['XS', 'S', 'M', 'L'],
+      stock: 80,
+      customizable: true,
+      customizationType: 'both',
+      variants: kidsVariants
+    });
+    console.log(`👕 Added ${kidsVariants.length} kids variants from uploads/kids`);
+  } else {
+    console.warn('⚠️  No kids variants found to seed.');
+  }
+  
+  return products;
 };
 
 try {

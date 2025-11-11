@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "seed": "node seeders/seed.js"
+    "seed": "node seeders/seed.js",
+    "seed:kids": "node scripts/seedKidsVariants.js",
+    "seed:tshirts": "node scripts/seedTshirtVariants.js",
+    "seed:hoodies": "node scripts/seedHoodieVariants.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
