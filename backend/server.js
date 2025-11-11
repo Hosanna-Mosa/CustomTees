@@ -28,6 +28,7 @@ configureCloudinary();
 // Middlewares
 app.use(cors({
     origin: [
+        "https://c-t-front-gltq.onrender.com",
         "http://localhost:8080",
         "http://localhost:8081",
     ],
