@@ -471,9 +471,43 @@ export default function Customize() {
   // Helper: initialize Fabric canvas
   const setupCanvasInstance = useCallback((el: HTMLCanvasElement) => {
     if (didInitCanvasRef.current || fabricCanvas) return;
+    
+    // Calculate responsive canvas size
+    const getCanvasSize = () => {
+      // Get the actual container width
+      const container = el.closest('.container') || el.parentElement?.parentElement;
+      if (!container) {
+        // Fallback: use viewport width
+        const viewportWidth = window.innerWidth;
+        const isMobile = viewportWidth < 640;
+        const maxWidth = isMobile ? Math.min(viewportWidth - 48, 320) : 500;
+        const aspectRatio = 5 / 6;
+        return { width: maxWidth, height: maxWidth / aspectRatio };
+      }
+      
+      const containerWidth = (container as HTMLElement).clientWidth || window.innerWidth;
+      const padding = 48; // Account for container padding and card padding
+      const availableWidth = Math.max(280, containerWidth - padding);
+      
+      // On mobile, use smaller size; on desktop, use full size
+      const isMobile = window.innerWidth < 640; // sm breakpoint
+      const maxWidth = isMobile ? Math.min(availableWidth, 320) : Math.min(availableWidth, 500);
+      const aspectRatio = 5 / 6; // 500:600 ratio
+      const height = maxWidth / aspectRatio;
+      
+      return { width: Math.round(maxWidth), height: Math.round(height) };
+    };
+    
+    // Wait a bit for DOM to be ready, then calculate size
+    const calculateSize = () => {
+      const size = getCanvasSize();
+      return size;
+    };
+    
+    const { width, height } = calculateSize();
     const canvas = new FabricCanvas(el, {
-      width: 500,
-      height: 600,
+      width,
+      height,
       backgroundColor: "transparent",
     });
     setFabricCanvas(canvas);
@@ -524,6 +558,78 @@ export default function Customize() {
     }
   }, [setupCanvasInstance, step]);
 
+  // Resize canvas on window resize to prevent overflow
+  useEffect(() => {
+    if (!fabricCanvas || step !== "design" || !canvasRef.current) return;
+    
+    const handleResize = () => {
+      const canvas = fabricCanvas;
+      const container = canvasRef.current?.parentElement?.parentElement;
+      if (!container || !canvasRef.current) return;
+      
+      const containerWidth = container.clientWidth;
+      const padding = 48;
+      const availableWidth = Math.max(280, containerWidth - padding);
+      
+      const isMobile = window.innerWidth < 640;
+      const maxWidth = isMobile ? Math.min(availableWidth, 320) : Math.min(availableWidth, 500);
+      const aspectRatio = 5 / 6;
+      const newHeight = maxWidth / aspectRatio;
+      
+      // Only resize if size changed significantly (more than 10px difference)
+      const currentWidth = canvas.getWidth();
+      const currentHeight = canvas.getHeight();
+      if (Math.abs(currentWidth - maxWidth) > 10 || Math.abs(currentHeight - newHeight) > 10) {
+        // Store current scale ratio before resize
+        const scaleRatio = maxWidth / currentWidth;
+        
+        // Resize canvas
+        canvas.setDimensions({ width: maxWidth, height: newHeight });
+        
+        // Rescale all objects to maintain relative positions
+        const objects = canvas.getObjects();
+        objects.forEach((obj) => {
+          if ((obj as any).name !== 'tshirt-base-photo' && (obj as any).name !== 'bg-photo') {
+            // Scale custom elements proportionally
+            obj.scaleX = (obj.scaleX || 1) * scaleRatio;
+            obj.scaleY = (obj.scaleY || 1) * scaleRatio;
+            obj.left = (obj.left || 0) * scaleRatio;
+            obj.top = (obj.top || 0) * scaleRatio;
+            obj.setCoords();
+          }
+        });
+        
+        // Reload base image to fit new canvas size
+        const baseImg = objects.find((o) => (o as any).name === 'tshirt-base-photo');
+        if (baseImg && selectedProduct && selectedColor) {
+          const variant = selectedProduct.variants.find((v) => v.color === selectedColor);
+          const imgUrl = variant ? pickVariantImageForSide(variant, designSide) : undefined;
+          if (imgUrl) {
+            canvas.remove(baseImg);
+            addProductPhotoBase(canvas, imgUrl);
+          }
+        }
+        
+        canvas.renderAll();
+      }
+    };
+    
+    // Debounce resize
+    let resizeTimeout: NodeJS.Timeout;
+    const debouncedResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(handleResize, 200);
+    };
+    
+    window.addEventListener('resize', debouncedResize);
+    // Initial check after a short delay to ensure DOM is ready
+    setTimeout(handleResize, 200);
+    
+    return () => {
+      window.removeEventListener('resize', debouncedResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, [fabricCanvas, step, selectedProduct, selectedColor, designSide]);
 
   // Focused logging for front/back switching
   useEffect(() => {
@@ -629,9 +735,9 @@ export default function Customize() {
             console.log("[Customize] Base image loaded successfully for", designSide, "Dimensions:", img.width, "x", img.height);
             img.set({ selectable: false, evented: false });
             
-            // Cover entire canvas area for full width/height
-            const canvasW = 500;
-            const canvasH = 600;
+            // Use actual canvas dimensions instead of hardcoded values
+            const canvasW = fabricCanvas.getWidth();
+            const canvasH = fabricCanvas.getHeight();
             const scaleX = canvasW / (img.width || canvasW);
             const scaleY = canvasH / (img.height || canvasH);
             const scale = Math.max(scaleX, scaleY);
@@ -1248,9 +1354,9 @@ export default function Customize() {
     const url = "/placeholder.svg"; // uses existing public asset
     FabricImage.fromURL(url).then((img) => {
       img.set({ left: 0, top: 0, selectable: false, evented: false, opacity: 0.25 });
-      // cover entire canvas area
-      const canvasW = 500;
-      const canvasH = 600;
+      // Use actual canvas dimensions
+      const canvasW = canvas.getWidth();
+      const canvasH = canvas.getHeight();
       const scaleX = canvasW / (img.width || canvasW);
       const scaleY = canvasH / (img.height || canvasH);
       const scale = Math.max(scaleX, scaleY);
@@ -1272,9 +1378,9 @@ export default function Customize() {
         // eslint-disable-next-line no-console
         console.log("[Customize] Base image loaded successfully");
         img.set({ selectable: false, evented: false });
-        // Cover entire canvas area for full width/height
-        const canvasW = 500;
-        const canvasH = 600;
+        // Use actual canvas dimensions instead of hardcoded values
+        const canvasW = canvas.getWidth();
+        const canvasH = canvas.getHeight();
         const scaleX = canvasW / (img.width || canvasW);
         const scaleY = canvasH / (img.height || canvasH);
         const scale = Math.max(scaleX, scaleY);
@@ -1292,6 +1398,10 @@ export default function Customize() {
           canvas.sendObjectToBack(bg);
         }
         canvas.renderAll();
+        // eslint-disable-next-line no-console
+        console.log("[Customize] Base image loaded successfully for", designSide, "Dimensions:", canvasW, "x", canvasH);
+        // eslint-disable-next-line no-console
+        console.log("[Customize] Image positioning - Scale:", scale, "Size:", newW, "x", newH, "Position:", (canvasW - newW) / 2, ",", (canvasH - newH) / 2);
       })
       .catch((err) => {
         // eslint-disable-next-line no-console
@@ -2167,10 +2277,10 @@ export default function Customize() {
   // ---- End top ----
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/20">
       <Navbar />
 
-      <div className="container mx-auto px-4 py-8 flex-1">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 flex-1 overflow-x-hidden">
 
         <AnimatePresence mode="wait">
           {/* Step 1: Category Selection */}
@@ -2183,18 +2293,18 @@ export default function Customize() {
               className="max-w-4xl mx-auto"
             >
               <Card>
-                <CardContent className="p-8">
-                  <h2 className="text-2xl font-semibold mb-6 text-center">Select a Category</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <CardContent className="p-4 sm:p-6 md:p-8">
+                  <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6 text-center">Select a Category</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                     {CATEGORIES.map((category) => (
                       <Button
                         key={category.id}
                         variant="outline"
-                        className="h-32 flex flex-col gap-2"
+                        className="h-24 sm:h-32 flex flex-col gap-1 sm:gap-2 text-xs sm:text-sm"
                         onClick={() => handleCategorySelect(category)}
                         disabled={loading}
                       >
-                        <span className="text-4xl">{category.icon}</span>
+                        <span className="text-2xl sm:text-4xl">{category.icon}</span>
                         <span className="font-medium">{category.name}</span>
                       </Button>
                     ))}
@@ -2214,14 +2324,14 @@ export default function Customize() {
               className="max-w-6xl mx-auto"
             >
               <Card>
-                <CardContent className="p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-semibold">
+                <CardContent className="p-4 sm:p-6 md:p-8">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+                    <h2 className="text-xl sm:text-2xl font-semibold">
                       {selectedCategory?.name ? `${selectedCategory.name} - ` : ""}Select a Product
                     </h2>
                     {selectedCategory && (
-                      <Button variant="outline" onClick={handleBack}>
-                        <ArrowLeft className="mr-2 h-4 w-4" />
+                      <Button variant="outline" onClick={handleBack} className="w-full sm:w-auto text-xs sm:text-sm h-9 sm:h-10">
+                        <ArrowLeft className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         Back
                       </Button>
                     )}
@@ -2281,42 +2391,42 @@ export default function Customize() {
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0 }}
             >
-        <div className="grid gap-8 lg:grid-cols-[400px_1fr_300px]">
+        <div className="flex flex-col lg:grid lg:grid-cols-[minmax(280px,400px)_1fr_minmax(280px,300px)] gap-4 sm:gap-6 lg:gap-8">
           {/* Left Sidebar - Product Options */}
-          <Card className="h-fit">
-            <CardContent className="p-6 space-y-6">
+          <Card className="h-fit order-1 lg:order-1">
+            <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               <div>
-                      <Label className="mb-3 block text-base font-semibold">Design Side</Label>
-                      <div className="grid grid-cols-2 gap-2 mb-4">
+                      <Label className="mb-2 sm:mb-3 block text-sm sm:text-base font-semibold">Design Side</Label>
+                      <div className="grid grid-cols-2 gap-2 mb-3 sm:mb-4">
                         <Button
                           variant={designSide === "front" ? "default" : "outline"}
                           onClick={() => setDesignSide("front")}
-                          className="w-full"
+                          className="w-full h-9 sm:h-10 text-xs sm:text-sm"
                         >
                           Front
                         </Button>
                         <Button
                           variant={designSide === "back" ? "default" : "outline"}
                           onClick={() => setDesignSide("back")}
-                          className="w-full"
+                          className="w-full h-9 sm:h-10 text-xs sm:text-sm"
                         >
                           Back
                         </Button>
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">
                         Front: {frontDesignLayers.length} elements | Back: {backDesignLayers.length} elements
                 </div>
               </div>
 
-                    <div className="border-t pt-4">
-                <Label className="mb-3 block text-base font-semibold">Size</Label>
-                <div className="grid grid-cols-3 gap-2">
+                    <div className="border-t pt-3 sm:pt-4">
+                <Label className="mb-2 sm:mb-3 block text-sm sm:text-base font-semibold">Size</Label>
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                   {SIZES.map((size) => (
                     <Button
                       key={size}
                       variant={selectedSize === size ? "default" : "outline"}
                       onClick={() => setSelectedSize(size)}
-                      className="w-full"
+                      className="w-full h-8 sm:h-9 text-xs sm:text-sm"
                     >
                       {size}
                     </Button>
@@ -2324,8 +2434,8 @@ export default function Customize() {
                 </div>
               </div>
 
-              <div className="border-t pt-4">
-                <Label className="mb-3 block text-base font-semibold">Product Color</Label>
+              <div className="border-t pt-3 sm:pt-4">
+                <Label className="mb-2 sm:mb-3 block text-sm sm:text-base font-semibold">Product Color</Label>
                 {selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0 && (
                   <div className="space-y-3">
                     {/* Color Dropdown Trigger */}
@@ -2333,23 +2443,23 @@ export default function Customize() {
                       <Button
                         variant="outline"
                         onClick={() => setShowColorDropdown(!showColorDropdown)}
-                        className="w-full h-12 flex items-center justify-between p-3 rounded-lg border bg-primary/10 border-primary/20 hover:bg-primary/20"
+                        className="w-full h-10 sm:h-12 flex items-center justify-between p-2 sm:p-3 rounded-lg border bg-primary/10 border-primary/20 hover:bg-primary/20 text-xs sm:text-sm"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
                           <div
-                            className="w-8 h-8 rounded-full border-2 border-border"
+                            className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 border-border shrink-0"
                             style={{ backgroundColor: selectedProduct.variants.find(v => v.color === selectedColor)?.colorCode || '#ffffff' }}
                           />
-                          <span className="font-medium">{selectedColor}</span>
+                          <span className="font-medium truncate">{selectedColor}</span>
                         </div>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${showColorDropdown ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 transition-transform shrink-0 ${showColorDropdown ? 'rotate-180' : ''}`} />
                       </Button>
 
                       {/* Color Dropdown Content */}
                       {showColorDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
-                          <div className="p-4">
-                            <div className="grid grid-cols-10 gap-2">
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-background border-2 border-border rounded-lg shadow-xl z-50 max-h-64 sm:max-h-80 overflow-y-auto">
+                          <div className="p-3 sm:p-4">
+                            <div className="grid grid-cols-8 sm:grid-cols-10 gap-2">
                               {selectedProduct.variants.map((variant) => (
                                 <button
                                   key={variant.color}
@@ -2357,7 +2467,7 @@ export default function Customize() {
                                     setSelectedColor(variant.color);
                                     setShowColorDropdown(false);
                                   }}
-                                  className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
+                                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 transition-all hover:scale-110 ${
                                     selectedColor === variant.color 
                                       ? 'border-primary ring-2 ring-primary/20' 
                                       : 'border-border hover:border-primary/50'
@@ -2375,28 +2485,28 @@ export default function Customize() {
                 )}
               </div>
 
-              <div className="border-t pt-4">
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
+              <div className="border-t pt-3 sm:pt-4">
+                <div className="space-y-2 sm:space-y-3">
+                  <div className="flex justify-between text-xs sm:text-sm">
                     <span className="text-muted-foreground">Base Price:</span>
                     <span className="font-medium">₹{basePrice.toFixed(2)}</span>
                   </div>
                   
                   {frontCustomizationCost > 0 && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-muted-foreground">Front Design:</span>
                       <span className="font-medium">₹{frontCustomizationCost.toFixed(2)}</span>
                     </div>
                   )}
                   
                   {backCustomizationCost > 0 && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-muted-foreground">Back Design:</span>
                       <span className="font-medium">₹{backCustomizationCost.toFixed(2)}</span>
                     </div>
                   )}
                   
-                  <div className="flex justify-between border-t pt-2 text-lg font-bold">
+                  <div className="flex justify-between border-t pt-2 text-base sm:text-lg font-bold">
                     <span>Total:</span>
                     <span className="text-primary">₹{totalPrice.toFixed(2)}</span>
                   </div>
@@ -2406,72 +2516,81 @@ export default function Customize() {
           </Card>
 
           {/* Center - Canvas */}
-          <div className="flex flex-col items-center gap-4">
-            <div className="rounded-lg border p-4 shadow-lg bg-muted/30">
-                    <canvas ref={canvasElRef} className="max-w-full bg-transparent" />
+          <div className="flex flex-col items-center gap-3 sm:gap-4 order-3 lg:order-2 w-full overflow-hidden">
+            <div className="rounded-lg border-2 p-2 sm:p-4 shadow-lg bg-muted/30 w-full max-w-full overflow-hidden flex items-center justify-center" style={{ maxWidth: '100%', width: '100%' }}>
+                    <div className="w-full max-w-full flex items-center justify-center" style={{ maxWidth: '100%', width: '100%', overflow: 'hidden' }}>
+                      <canvas 
+                        ref={canvasElRef} 
+                        className="bg-transparent" 
+                        style={{ 
+                          maxWidth: '100%', 
+                          width: '100%',
+                          height: 'auto',
+                          display: 'block',
+                          objectFit: 'contain'
+                        }} 
+                      />
+                    </div>
             </div>
             {activeLayerMetric && (
               <div
-                style={{
-                  textAlign: 'center',
-                  marginTop: '0.5rem',
-                  fontWeight: 500,
-                  fontSize: '1.1rem',
-                  letterSpacing: '0.5px',
-                  color: '#262626',
-                  background: 'rgba(255,255,255,0.82)',
-                  borderRadius: '6px',
-                  display: 'inline-block',
-                  padding: '2px 12px',
-                  boxShadow: '0 1px 4px 0 rgba(0,0,0,0.03)',
-                }}
+                className="text-center mt-2 font-medium text-xs sm:text-sm md:text-base text-foreground bg-background/90 rounded-md inline-block px-2 sm:px-3 py-1 shadow-sm"
               >
                 Size: {activeLayerMetric.widthInches.toFixed(2)}″ × {activeLayerMetric.heightInches.toFixed(2)}″
               </div>
             )}
 
-            <div className="flex flex-wrap gap-2 justify-center">
-              <Button variant="outline" size="sm" onClick={handleRotate}>
-                <RotateCw className="mr-2 h-4 w-4" />
-                Rotate
+            <div className="flex flex-wrap gap-2 justify-center w-full px-2">
+              <Button variant="outline" size="sm" onClick={handleRotate} className="text-xs sm:text-sm">
+                <RotateCw className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Rotate</span>
+                <span className="sm:hidden">↻</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={handleDeleteSelected}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+              <Button variant="outline" size="sm" onClick={handleDeleteSelected} className="text-xs sm:text-sm">
+                <Trash2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Delete</span>
+                <span className="sm:hidden">🗑</span>
               </Button>
               {IS_DEVELOPMENT && (
-                <Button variant="outline" size="sm" onClick={refreshAllObjectSizes} title="Refresh all elements to use updated size dimensions">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh Sizes
+                <Button variant="outline" size="sm" onClick={refreshAllObjectSizes} title="Refresh all elements to use updated size dimensions" className="text-xs sm:text-sm">
+                  <RefreshCw className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Refresh Sizes</span>
+                  <span className="sm:hidden">↻</span>
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={handleReset}>
-                Reset Design
+              <Button variant="outline" size="sm" onClick={handleReset} className="text-xs sm:text-sm">
+                <span className="hidden sm:inline">Reset</span>
+                <span className="sm:hidden">↺</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                Download
+              <Button variant="outline" size="sm" onClick={handleDownload} className="text-xs sm:text-sm">
+                <Download className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Download</span>
+                <span className="sm:hidden">↓</span>
               </Button>
-              <Button size="sm" onClick={handleSaveDesign} disabled={savingDesign}>
+              <Button size="sm" onClick={handleSaveDesign} disabled={savingDesign} className="text-xs sm:text-sm">
                 {savingDesign ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Saving...
+                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-1 sm:mr-2"></div>
+                    <span className="hidden sm:inline">Saving...</span>
+                    <span className="sm:hidden">...</span>
                   </>
                 ) : (
-                  "Save"
+                  <>
+                    <span className="hidden sm:inline">Save</span>
+                    <span className="sm:hidden">💾</span>
+                  </>
                 )}
               </Button>
             </div>
           </div>
 
           {/* Right Sidebar - Customization Tools */}
-          <Card className="h-fit">
-            <CardContent className="p-6">
+          <Card className="h-fit order-2 lg:order-3">
+            <CardContent className="p-4 sm:p-6">
               {/* Design Size Selector */}
-              <div className="mb-6 pb-6 border-b">
+              <div className="mb-4 sm:mb-6 pb-4 sm:pb-6 border-b">
                 <div className="mb-3 flex items-center justify-between gap-2">
-                  <Label className="text-base font-semibold">Design Size</Label>
+                  <Label className="text-sm sm:text-base font-semibold">Design Size</Label>
                   <Popover open={templatePopoverOpen} onOpenChange={setTemplatePopoverOpen}>
                     <PopoverTrigger asChild>
                       <Button
@@ -2545,48 +2664,50 @@ export default function Customize() {
                           handleChangeObjectSize(size.id);
                         }
                       }}
-                      className="flex flex-col h-auto py-2"
+                      className="flex flex-col h-auto py-2 text-xs"
                     >
-                      <span className="text-xs font-medium">{size.name}</span>
-                      <span className="text-xs text-muted-foreground">{size.description}</span>
-                      <span className="text-xs font-semibold text-primary mt-1">₹{size.price}</span>
+                      <span className="text-xs font-medium leading-tight">{size.name}</span>
+                      <span className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{size.description}</span>
+                      <span className="text-xs font-semibold text-primary mt-0.5">₹{size.price}</span>
                     </Button>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-2 leading-relaxed">
                   Select a size before adding elements, or change size of selected element
                 </p>
               </div>
 
               <Tabs defaultValue="text" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="text">
-                    <Type className="mr-2 h-4 w-4" />
-                    Text
+                <TabsList className="grid w-full grid-cols-2 h-9 sm:h-10">
+                  <TabsTrigger value="text" className="text-xs sm:text-sm">
+                    <Type className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Text</span>
+                    <span className="sm:hidden">T</span>
                   </TabsTrigger>
-                  <TabsTrigger value="image">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Image
+                  <TabsTrigger value="image" className="text-xs sm:text-sm">
+                    <Upload className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Image</span>
+                    <span className="sm:hidden">📷</span>
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="text" className="space-y-4 pt-4">
+                <TabsContent value="text" className="space-y-3 sm:space-y-4 pt-3 sm:pt-4">
                   <div>
-                    <Label className="mb-2 block">Your Text</Label>
+                    <Label className="mb-2 block text-xs sm:text-sm">Your Text</Label>
                     <Input
                       value={textInput}
                       onChange={(e) => setTextInput(e.target.value)}
                       placeholder="Type here..."
-                      className="mb-4"
+                      className="mb-3 sm:mb-4 text-sm sm:text-base h-9 sm:h-10"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleAddText();
                       }}
                     />
-                    <Label className="mb-2 block">Font</Label>
+                    <Label className="mb-2 block text-xs sm:text-sm">Font</Label>
                     <select
                       value={selectedFont}
                       onChange={(e) => setSelectedFont(e.target.value)}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2"
+                      className="w-full rounded-md border border-input bg-background px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm h-9 sm:h-10"
                     >
                       {FONTS.map((font) => (
                         <option key={font} value={font}>
@@ -2597,44 +2718,45 @@ export default function Customize() {
                   </div>
 
                   <div>
-                    <Label className="mb-2 block">Font Size: {fontSize}px</Label>
+                    <Label className="mb-2 block text-xs sm:text-sm">Font Size: {fontSize}px</Label>
                     <Slider
                       value={[fontSize]}
                       onValueChange={(value) => setFontSize(value[0])}
                       min={20}
                       max={100}
                       step={5}
+                      className="w-full"
                     />
                   </div>
 
                   <div>
-                    <Label className="mb-2 block">Text Color</Label>
+                    <Label className="mb-2 block text-xs sm:text-sm">Text Color</Label>
                     <div className="space-y-2">
                       <button
                         onClick={() => setShowColorPicker(!showColorPicker)}
-                        className="h-10 w-full rounded-md border-2 border-border"
+                        className="h-9 sm:h-10 w-full rounded-md border-2 border-border"
                         style={{ backgroundColor: textColor }}
                       />
                       {showColorPicker && (
-                        <div className="rounded-lg border p-3">
-                          <HexColorPicker color={textColor} onChange={setTextColor} />
+                        <div className="rounded-lg border p-2 sm:p-3">
+                          <HexColorPicker color={textColor} onChange={setTextColor} style={{ width: '100%' }} />
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <Button onClick={handleAddText} className="w-full">
-                    <Type className="mr-2 h-4 w-4" />
+                  <Button onClick={handleAddText} className="w-full h-9 sm:h-10 text-xs sm:text-sm">
+                    <Type className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     {fabricCanvas?.getActiveObject() && (fabricCanvas.getActiveObject() as any).name === "custom-text" ? "Update Text" : "Add Text"}
                   </Button>
                 </TabsContent>
 
-                <TabsContent value="image" className="space-y-4 pt-4">
+                <TabsContent value="image" className="space-y-3 sm:space-y-4 pt-3 sm:pt-4">
                   <div>
-                    <Label className="mb-2 block">Upload Image</Label>
-                    <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
-                      <Upload className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-                      <p className="mb-2 text-sm text-muted-foreground">
+                    <Label className="mb-2 block text-xs sm:text-sm">Upload Image</Label>
+                    <div className="rounded-lg border-2 border-dashed border-border p-4 sm:p-8 text-center">
+                      <Upload className="mx-auto mb-2 h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
+                      <p className="mb-2 text-xs sm:text-sm text-muted-foreground">
                         Click to upload your logo or design
                       </p>
                       <input
@@ -2645,21 +2767,21 @@ export default function Customize() {
                         id="image-upload"
                       />
                       <label htmlFor="image-upload">
-                        <Button variant="outline" size="sm" asChild>
+                        <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm h-8 sm:h-9">
                           <span>Choose File</span>
                         </Button>
                       </label>
                     </div>
                   </div>
 
-                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm">
+                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 sm:p-4 text-xs sm:text-sm">
                     <p className="font-medium text-blue-800">💡 Pro Tip:</p>
                     <p className="mt-1 text-blue-700">PNG images give you the best results with transparent backgrounds and high quality.</p>
                   </div>
                 </TabsContent>
               </Tabs>
 
-              <div className="mt-6 space-y-3 border-t pt-6">
+              <div className="mt-4 sm:mt-6 space-y-3 border-t pt-4 sm:pt-6">
                 <Button 
                   onClick={() => {
                     if (!fabricCanvas || !selectedProduct || !selectedColor) {
@@ -2673,23 +2795,25 @@ export default function Customize() {
                     }
                     setInstructionDialogOpen(true);
                   }}
-                  className="w-full gradient-hero shadow-primary"
+                  className="w-full gradient-hero shadow-primary h-10 sm:h-11 text-xs sm:text-sm font-semibold"
                   disabled={addingToCart}
                 >
                   {addingToCart ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Adding to Cart...
+                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2"></div>
+                      <span className="hidden sm:inline">Adding to Cart...</span>
+                      <span className="sm:hidden">Adding...</span>
                     </>
                   ) : (
                     <>
-                      <ShoppingCart className="mr-2 h-4 w-4" />
-                      Add to Cart
+                      <ShoppingCart className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                      <span className="hidden sm:inline">Add to Cart</span>
+                      <span className="sm:hidden">Add to Cart</span>
                     </>
                   )}
                 </Button>
-                <p className="text-center text-xs text-muted-foreground">
-                  Free shipping on orders over $50
+                <p className="text-center text-[10px] sm:text-xs text-muted-foreground">
+                  Free shipping on orders over ₹50
                 </p>
               </div>
             </CardContent>
