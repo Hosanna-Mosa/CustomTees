@@ -52,6 +52,7 @@ const userSchema = new mongoose.Schema(
         backCustomizationCost: { type: Number, default: 0 },
         totalPrice: { type: Number, required: true },
         quantity: { type: Number, default: 1 },
+        instruction: { type: String },
         addedAt: { type: Date, default: Date.now },
       },
     ],

@@ -27,6 +27,7 @@ type OrderDetails = Order & {
     };
     quantity: number;
     price: number;
+    instruction?: string;
     customDesign?: {
       frontDesign?: {
         previewImage?: string;
@@ -255,6 +256,12 @@ export function Orders() {
                             <div style={{ fontSize: '14px', color: 'var(--muted)' }}>
                               {item.customDesign.selectedColor} • {item.customDesign.selectedSize}
                             </div>
+                            {item.instruction && (
+                              <div style={{ marginTop: 8, padding: '8px 10px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, color: '#444' }}>
+                                <strong style={{ display: 'block', fontWeight: 600, marginBottom: 4 }}>Customer Instructions</strong>
+                                <span style={{ whiteSpace: 'pre-wrap' }}>{item.instruction}</span>
+                              </div>
+                            )}
                           </div>
                           
                           <div className="design-preview-grid">
@@ -491,6 +498,12 @@ export function Orders() {
                       <span className="label">Price:</span>
                       <span className="value">₹{(item.price / 100).toFixed(2)}</span>
                     </div>
+                    {item.instruction && (
+                      <div className="detail-row">
+                        <span className="label">Instruction:</span>
+                        <span className="value" style={{ whiteSpace: 'pre-wrap' }}>{item.instruction}</span>
+                      </div>
+                    )}
                     
                     {/* Custom Design Information */}
                     {item.customDesign && (
