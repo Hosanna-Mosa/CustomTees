@@ -12,6 +12,7 @@ import productRoutes from './src/routes/product.routes.js';
 import adminRoutes from './src/routes/admin.routes.js';
 import orderRoutes from './src/routes/order.routes.js';
 import settingRoutes from './src/routes/setting.routes.js';
+import couponRoutes from './src/routes/coupon.routes.js';
 import templateRoutes from './src/routes/template.routes.js';
 import { notFound, errorHandler } from './src/middlewares/error.middleware.js';
 
@@ -46,6 +47,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/settings', settingRoutes);
+app.use('/api/coupons', couponRoutes);
 app.use('/api/templates', templateRoutes);
 
 

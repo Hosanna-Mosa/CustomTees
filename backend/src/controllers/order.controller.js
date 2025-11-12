@@ -1,6 +1,7 @@
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import User from '../models/User.js';
+import Coupon from '../models/Coupon.js';
 import { uploadDataUrl } from '../services/cloudinary.service.js';
 
 export const createOrder = async (req, res) => {
@@ -21,7 +22,7 @@ export const createOrder = async (req, res) => {
 
 export const createOrderFromCart = async (req, res) => {
   try {
-    const { paymentMethod, shippingAddress } = req.body;
+    const { paymentMethod, shippingAddress, couponCode, discountAmount } = req.body;
     
     // Get user with cart
     const user = await User.findById(req.user._id);
@@ -92,8 +93,40 @@ export const createOrderFromCart = async (req, res) => {
       });
     }
     
-    // Calculate total
-    const total = user.cart.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
+    // Calculate subtotal
+    const subtotal = user.cart.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0);
+    
+    // Handle coupon if provided
+    let finalDiscountAmount = 0;
+    let couponData = null;
+    
+    if (couponCode && discountAmount) {
+      // Validate coupon one more time before creating order
+      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase().trim(), isActive: true });
+      
+      if (coupon) {
+        const now = new Date();
+        if (now >= coupon.validFrom && now <= coupon.validTo) {
+          if (subtotal >= coupon.minPurchase) {
+            if (coupon.usageLimit === null || coupon.usedCount < coupon.usageLimit) {
+              // Apply discount
+              finalDiscountAmount = Math.min(discountAmount, subtotal); // Ensure discount doesn't exceed subtotal
+              couponData = {
+                code: coupon.code,
+                discountAmount: finalDiscountAmount,
+              };
+              
+              // Increment coupon usage
+              coupon.usedCount += 1;
+              await coupon.save();
+            }
+          }
+        }
+      }
+    }
+    
+    // Calculate final total
+    const total = Math.max(0, subtotal - finalDiscountAmount);
     
     // Create order
     const order = await Order.create({
@@ -102,6 +135,7 @@ export const createOrderFromCart = async (req, res) => {
       total,
       paymentMethod,
       shippingAddress,
+      coupon: couponData,
     });
     
     // Clear user's cart after successful order

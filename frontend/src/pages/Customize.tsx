@@ -1302,17 +1302,32 @@ export default function Customize() {
 
   // Pick appropriate base image for the selected side
   const pickVariantImageForSide = (variant: Product["variants"][number], side: "front" | "back") => {
-    if (!variant?.images?.length) return undefined;
-    // Heuristics:
-    // 1) Prefer URLs containing "back" when side === back and "front" for front
-    // 2) Otherwise, use index 0 for front, index 1 for back if present (fallback to 0)
-    const lower = (s: string) => s.toLowerCase();
-    const byHint = variant.images.find((img) =>
-      side === "back" ? lower(img.url).includes("back") : lower(img.url).includes("front")
-    );
-    if (byHint) return byHint.url;
-    if (side === "front") return variant.images[0]?.url;
-    return variant.images[1]?.url || variant.images[0]?.url;
+    if (!variant) return undefined;
+
+    const getUrl = (images?: Array<{ url: string }>) =>
+      images && images.length ? images[0]?.url : undefined;
+
+    if (side === "front") {
+      const front = getUrl((variant as any).frontImages);
+      if (front) return front;
+    } else {
+      const back = getUrl((variant as any).backImages);
+      if (back) return back;
+    }
+
+    if (Array.isArray(variant.images) && variant.images.length) {
+      const lower = (s: string) => s.toLowerCase();
+      const hinted = variant.images.find((img) =>
+        side === "back" ? lower(img.url).includes("back") : lower(img.url).includes("front")
+      );
+      if (hinted) return hinted.url;
+
+      // Fallback — assume images array is [front, back, ...]
+      if (side === "front") return variant.images[0]?.url;
+      return variant.images[1]?.url || variant.images[0]?.url;
+    }
+
+    return undefined;
   };
 
   const handleAddText = () => {
@@ -2223,7 +2238,13 @@ export default function Customize() {
                         >
                           <CardContent className="p-4">
                             <div className="aspect-square bg-muted rounded-lg mb-4 flex items-center justify-center">
-                              {product.variants[0]?.images[0] ? (
+                              {product.variants[0]?.frontImages?.[0] ? (
+                                <img
+                                  src={product.variants[0].frontImages[0].url}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover rounded-lg"
+                                />
+                              ) : product.variants[0]?.images?.[0] ? (
                                 <img
                                   src={product.variants[0].images[0].url}
                                   alt={product.name}
