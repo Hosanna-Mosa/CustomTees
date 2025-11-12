@@ -129,6 +129,20 @@ export const myOrders = async () => {
   return (res as any).data;
 };
 
+// Coupons
+export const getActiveCoupons = async () => {
+  const res = await request('/coupons/active');
+  return (res as any).data;
+};
+
+export const applyCoupon = async (code: string, totalAmount: number) => {
+  const res = await request('/coupons/apply', {
+    method: 'POST',
+    body: { code, totalAmount },
+  });
+  return (res as any).data;
+};
+
 export default { request };
 
 

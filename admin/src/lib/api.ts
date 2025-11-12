@@ -92,6 +92,21 @@ export const api = {
   getSettings: () => request<{ success: boolean; data: any }>(`/settings`),
   updateSettings: (form: FormData) =>
     request<{ success: boolean; data: any }>(`/settings`, { method: 'PUT', body: form, isForm: true }),
+
+  // Coupons
+  getCoupons: () => request<{ success: boolean; data: any[] }>(`/coupons`),
+  getCouponById: (id: string) => request<{ success: boolean; data: any }>(`/coupons/${id}`),
+  createCoupon: (data: any) => request<{ success: boolean; data: any }>(`/coupons`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateCoupon: (id: string, data: any) => request<{ success: boolean; data: any }>(`/coupons/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  deleteCoupon: (id: string) => request<{ success: boolean; message: string }>(`/coupons/${id}`, {
+    method: 'DELETE',
+  }),
 }
 
 export default api

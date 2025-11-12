@@ -9,7 +9,8 @@
     "seed": "node seeders/seed.js",
     "seed:kids": "node scripts/seedKidsVariants.js",
     "seed:tshirts": "node scripts/seedTshirtVariants.js",
-    "seed:hoodies": "node scripts/seedHoodieVariants.js"
+    "seed:hoodies": "node scripts/seedHoodieVariants.js",
+    "check:colors": "node scripts/checkColorMismatches.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

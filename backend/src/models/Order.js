@@ -66,6 +66,10 @@ const orderSchema = new mongoose.Schema(
       enum: ['placed', 'processing', 'shipped', 'delivered', 'cancelled'],
       default: 'placed',
     },
+    coupon: {
+      code: { type: String },
+      discountAmount: { type: Number, default: 0 },
+    },
   },
   { timestamps: true }
 );
