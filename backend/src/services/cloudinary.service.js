@@ -25,7 +25,7 @@ export const configureCloudinary = () => {
   return cloudinary;
 };
 
-export const uploadImage = async (filePath) => {
+export const uploadImage = async (filePath, folder = 'customtees/products') => {
   try {
     console.log('☁️ Cloudinary upload starting for file:', filePath);
     
@@ -35,7 +35,7 @@ export const uploadImage = async (filePath) => {
     // }
     
     const res = await cloudinary.uploader.upload(filePath, { 
-      folder: 'customtees/products',
+      folder,
       resource_type: 'auto'
     });
     
