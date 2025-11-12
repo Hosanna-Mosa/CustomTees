@@ -247,43 +247,45 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/20">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-6 sm:py-8 flex-1">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-6 sm:mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Checkout</h1>
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 flex-1">
+        <div className="max-w-5xl mx-auto">
+          <div className="mb-4 sm:mb-6 md:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Checkout</h1>
             <p className="text-sm sm:text-base text-muted-foreground">Complete your order securely</p>
           </div>
 
           {err && (
-            <Card className="mb-6 border-red-200 bg-red-50">
-              <CardContent className="p-4">
-                <p className="text-red-600">{err}</p>
+            <Card className="mb-4 sm:mb-6 border-2 border-red-200 bg-red-50/50">
+              <CardContent className="p-3 sm:p-4">
+                <p className="text-sm sm:text-base text-red-600">{err}</p>
               </CardContent>
             </Card>
           )}
 
-          <div className="grid gap-6 lg:gap-8 lg:grid-cols-2">
-            {/* Order Summary */}
-            <div className="space-y-4 sm:space-y-6">
+          <div className="flex flex-col lg:flex-row lg:gap-6 xl:gap-8">
+            {/* Left Column - Order Details */}
+            <div className="flex-1 space-y-4 sm:space-y-5 md:space-y-6">
               {/* Coupon Section */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Tag className="h-5 w-5" />
+              <Card className="border-2 shadow-lg">
+                <CardHeader className="p-4 sm:p-6 bg-gradient-to-r from-primary/5 to-transparent">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Tag className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     Coupon Code
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="p-4 sm:p-6 space-y-4">
                   {appliedCoupon ? (
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold text-green-800">Coupon Applied: {appliedCoupon.code}</p>
-                          <p className="text-sm text-green-700 mt-1">
-                            Discount: ₹{discountAmount.toFixed(2)}
+                    <div className="p-3 sm:p-4 bg-gradient-to-br from-green-50 to-green-100/50 border-2 border-green-200 rounded-xl">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="font-bold text-green-800 text-sm sm:text-base">
+                            Coupon Applied: {appliedCoupon.code}
+                          </p>
+                          <p className="text-xs sm:text-sm text-green-700 mt-1">
+                            Discount: <span className="font-semibold">₹{discountAmount.toFixed(2)}</span>
                             {appliedCoupon.description && ` - ${appliedCoupon.description}`}
                           </p>
                         </div>
@@ -291,7 +293,7 @@ export default function Checkout() {
                           variant="ghost"
                           size="sm"
                           onClick={handleRemoveCoupon}
-                          className="text-green-700 hover:text-green-800"
+                          className="text-green-700 hover:text-green-800 hover:bg-green-200/50 h-8 w-8 p-0 shrink-0"
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -299,20 +301,19 @@ export default function Checkout() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-  
                       {availableCoupons.length > 0 && (
                         <div className="pt-2 border-t">
-                          <p className="text-xs sm:text-sm text-muted-foreground mb-2 font-medium">Available Coupons:</p>
-                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                          <p className="text-xs sm:text-sm text-muted-foreground mb-3 font-semibold">Available Coupons:</p>
+                          <div className="space-y-2 max-h-40 overflow-y-auto">
                             {availableCoupons.map((coupon) => (
                               <div
                                 key={coupon._id}
-                                className="p-2 bg-muted/50 rounded-lg text-xs sm:text-sm cursor-pointer hover:bg-muted transition-colors"
+                                className="p-3 bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg text-xs sm:text-sm cursor-pointer hover:bg-muted transition-all duration-200 border border-muted-foreground/10 hover:border-primary/30"
                                 onClick={() => handleApplyCoupon(coupon.code)}
                               >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-semibold">{coupon.code}</span>
-                                  <span className="text-primary">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-bold text-foreground">{coupon.code}</span>
+                                  <span className="text-primary font-semibold">
                                     {coupon.discountType === 'percentage'
                                       ? `${coupon.discountValue}% OFF`
                                       : `₹${coupon.discountValue} OFF`}
@@ -336,22 +337,23 @@ export default function Checkout() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShoppingBag className="h-5 w-5" />
+              {/* Order Summary */}
+              <Card className="border-2 shadow-lg">
+                <CardHeader className="p-4 sm:p-6 bg-gradient-to-r from-primary/5 to-transparent">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     Order Summary
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="p-4 sm:p-6 space-y-4">
                   {cartItems.map((item) => (
-                    <div key={item._id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
+                    <div key={item._id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border-2 rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 hover:shadow-md transition-all">
+                      <div className="w-full sm:w-20 md:w-24 h-32 sm:h-20 md:h-24 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-muted to-muted/50 shadow-md">
                         {item.frontDesign?.previewImage ? (
                           <img 
                             src={item.frontDesign.previewImage} 
                             alt={item.productName} 
-                            className="w-full h-full object-cover rounded-lg" 
+                            className="w-full h-full object-cover" 
                           />
                         ) : (
                           <div className="w-full h-full bg-muted rounded-lg flex items-center justify-center text-muted-foreground text-xs">
@@ -359,25 +361,36 @@ export default function Checkout() {
                           </div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm sm:text-base">{item.productName}</h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          Size: {item.selectedSize} | Color: {item.selectedColor}
-                        </p>
-                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                          Base: ₹{item.basePrice.toFixed(2)}
+                      <div className="flex-1 min-w-0 w-full sm:w-auto">
+                        <h3 className="font-bold text-sm sm:text-base mb-1.5 line-clamp-2">{item.productName}</h3>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                            Size: {item.selectedSize}
+                          </span>
+                          <span className="px-2 py-0.5 bg-secondary/50 rounded-full text-xs">
+                            {item.selectedColor}
+                          </span>
+                        </div>
+                        <div className="text-xs sm:text-sm text-muted-foreground space-y-0.5 mb-2">
+                          <p>
+                            Base: <span className="font-medium text-foreground">₹{item.basePrice.toFixed(2)}</span>
+                          </p>
                           {item.frontCustomizationCost > 0 && (
-                            <span> | Front: ₹{item.frontCustomizationCost.toFixed(2)}</span>
+                            <p>
+                              Front: <span className="font-medium text-foreground">₹{item.frontCustomizationCost.toFixed(2)}</span>
+                            </p>
                           )}
                           {item.backCustomizationCost > 0 && (
-                            <span> | Back: ₹{item.backCustomizationCost.toFixed(2)}</span>
+                            <p>
+                              Back: <span className="font-medium text-foreground">₹{item.backCustomizationCost.toFixed(2)}</span>
+                            </p>
                           )}
-                        </p>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
-                          <div className="flex items-center gap-2">
-                            <Label className="text-xs sm:text-sm">Qty: {item.quantity}</Label>
-                          </div>
-                          <span className="font-semibold text-primary text-sm sm:text-base">
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t">
+                          <Label className="text-xs sm:text-sm text-muted-foreground">
+                            Qty: <span className="font-semibold text-foreground">{item.quantity}</span>
+                          </Label>
+                          <span className="font-bold text-primary text-base sm:text-lg">
                             ₹{(item.totalPrice * item.quantity).toFixed(2)}
                           </span>
                         </div>
@@ -385,27 +398,29 @@ export default function Checkout() {
                     </div>
                   ))}
                   
-                  <Separator />
+                  <Separator className="my-4" />
                   
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm sm:text-base">
-                      <span>Subtotal</span>
-                      <span>₹{Number(subtotal).toFixed(2)}</span>
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center text-sm sm:text-base">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="font-semibold text-foreground">₹{Number(subtotal).toFixed(2)}</span>
                     </div>
                     {discountAmount > 0 && (
-                      <div className="flex justify-between text-sm sm:text-base text-green-600">
+                      <div className="flex justify-between items-center text-sm sm:text-base text-green-600">
                         <span>Discount ({appliedCoupon?.code})</span>
-                        <span>-₹{Number(discountAmount).toFixed(2)}</span>
+                        <span className="font-semibold">-₹{Number(discountAmount).toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-sm sm:text-base">
-                      <span>Shipping</span>
-                      <span className="text-green-600">Free</span>
+                    <div className="flex justify-between items-center text-sm sm:text-base">
+                      <span className="text-muted-foreground">Shipping</span>
+                      <span className="font-semibold text-green-600">Free</span>
                     </div>
-                    <Separator />
-                    <div className="flex justify-between text-base sm:text-lg font-semibold">
-                      <span>Total</span>
-                      <span>₹{Number(total).toFixed(2)}</span>
+                    <Separator className="my-3" />
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="text-base sm:text-lg font-bold text-foreground">Total</span>
+                      <span className="text-xl sm:text-2xl font-bold text-primary">
+                        ₹{Number(total).toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 </CardContent>
@@ -418,27 +433,27 @@ export default function Checkout() {
               />
 
               {/* Payment Method */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
+              <Card className="border-2 shadow-lg">
+                <CardHeader className="p-4 sm:p-6 bg-gradient-to-r from-primary/5 to-transparent">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     Payment Method
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-4 sm:p-6">
                   <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as 'cod' | 'razorpay')}>
-                    <div className="flex items-center space-x-2 p-4 border rounded-lg hover:bg-muted/50">
+                    <div className="flex items-center space-x-3 p-4 border-2 rounded-xl hover:bg-muted/50 transition-all cursor-pointer">
                       <RadioGroupItem value="cod" id="cod" />
-                      <Label htmlFor="cod" className="flex items-center gap-2 cursor-pointer">
-                        <Truck className="h-4 w-4" />
-                        Cash on Delivery
+                      <Label htmlFor="cod" className="flex items-center gap-2 cursor-pointer flex-1">
+                        <Truck className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="text-sm sm:text-base font-medium">Cash on Delivery</span>
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 p-4 border rounded-lg hover:bg-muted/50">
+                    <div className="flex items-center space-x-3 p-4 border-2 rounded-xl hover:bg-muted/50 transition-all cursor-pointer mt-3">
                       <RadioGroupItem value="razorpay" id="razorpay" />
-                      <Label htmlFor="razorpay" className="flex items-center gap-2 cursor-pointer">
-                        <CreditCard className="h-4 w-4" />
-                        Razorpay (Test Mode)
+                      <Label htmlFor="razorpay" className="flex items-center gap-2 cursor-pointer flex-1">
+                        <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="text-sm sm:text-base font-medium">Razorpay (Test Mode)</span>
                       </Label>
                     </div>
                   </RadioGroup>
@@ -446,26 +461,38 @@ export default function Checkout() {
               </Card>
             </div>
 
-            {/* Order Actions */}
-            <div className="space-y-4 sm:space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
+            {/* Right Column - Order Actions */}
+            <div className="lg:w-80 xl:w-96 lg:sticky lg:top-24 lg:self-start mt-4 lg:mt-0">
+              <Card className="border-2 shadow-xl">
+                <CardHeader className="p-4 sm:p-6 bg-gradient-to-r from-primary/5 to-transparent">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     Secure Checkout
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                    <p>• Your payment information is secure and encrypted</p>
-                    <p>• Free shipping on all orders</p>
-                    <p>• 30-day return policy</p>
-                    <p>• 24/7 customer support</p>
+                <CardContent className="p-4 sm:p-6 space-y-4">
+                  <div className="space-y-2.5 text-xs sm:text-sm text-muted-foreground">
+                    <div className="flex items-start gap-2">
+                      <span className="text-green-600 mt-0.5">✓</span>
+                      <p>Your payment information is secure and encrypted</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-green-600 mt-0.5">✓</span>
+                      <p>Free shipping on all orders</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-green-600 mt-0.5">✓</span>
+                      <p>30-day return policy</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-green-600 mt-0.5">✓</span>
+                      <p>24/7 customer support</p>
+                    </div>
                   </div>
                   
                   {!selectedAddressId && (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <p className="text-xs sm:text-sm text-yellow-700">
+                    <div className="p-3 bg-amber-50 border-2 border-amber-200 rounded-xl">
+                      <p className="text-xs sm:text-sm text-amber-700 font-medium">
                         ⚠️ Please select a shipping address to continue
                       </p>
                     </div>
@@ -474,7 +501,7 @@ export default function Checkout() {
                   <Button 
                     onClick={placeOrder} 
                     disabled={loading || cartItems.length === 0 || !selectedAddressId}
-                    className="w-full h-10 sm:h-12 text-sm sm:text-lg"
+                    className="w-full h-11 sm:h-12 text-sm sm:text-base font-semibold gradient-hero shadow-lg hover:shadow-xl transition-all duration-200"
                     size="lg"
                   >
                     {loading ? 'Placing Order...' : 'Place Order'}
@@ -483,7 +510,7 @@ export default function Checkout() {
                   <Button 
                     variant="outline" 
                     onClick={() => navigate('/products')}
-                    className="w-full h-10 sm:h-12 text-sm sm:text-base"
+                    className="w-full h-10 sm:h-11 text-sm sm:text-base border-2"
                   >
                     Continue Shopping
                   </Button>
