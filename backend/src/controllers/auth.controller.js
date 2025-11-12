@@ -133,6 +133,12 @@ export const deleteDesign = async (req, res) => {
 export const addToCart = async (req, res) => {
   try {
     const cartItem = req.body;
+    if (cartItem?.instruction) {
+      cartItem.instruction = String(cartItem.instruction).trim();
+      if (!cartItem.instruction) {
+        delete cartItem.instruction;
+      }
+    }
     const rupee = (n) => `₹${Number(n || 0).toFixed(2)}`;
 
     // Back-office logging for design metrics per requirement

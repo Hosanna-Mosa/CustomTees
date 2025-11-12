@@ -27,6 +27,7 @@ interface CartItem {
   totalPrice: number;
   quantity: number;
   addedAt: string;
+  instruction?: string;
 }
 
 interface CartContextType {

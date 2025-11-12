@@ -35,6 +35,7 @@ const orderItemSchema = new mongoose.Schema(
       selectedColor: { type: String },
       selectedSize: { type: String },
     },
+    instruction: { type: String, trim: true },
   },
   { _id: false }
 );

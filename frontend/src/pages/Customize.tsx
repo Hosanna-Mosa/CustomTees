@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Upload,
   Type,
@@ -26,8 +26,13 @@ import {
 import { toast } from "sonner";
 import { HexColorPicker } from "react-colorful";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchProducts, fetchProductBySlug, saveMyDesign, getMyDesignById } from "@/lib/api";
+import { fetchProducts, fetchProductBySlug, saveMyDesign, getMyDesignById, fetchTemplates } from "@/lib/api";
 import { useCart } from "@/contexts/CartContext";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandInput, CommandList } from "@/components/ui/command";
+import { Loader2, Sparkles } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 // Types
 type Step = "category" | "product" | "design";
@@ -57,6 +62,15 @@ interface Product {
     perTextLayer: number;
     perImageLayer: number;
     sizeMultiplier: number;
+  };
+}
+
+interface TemplateAsset {
+  _id: string;
+  name?: string;
+  image: {
+    url: string;
+    public_id: string;
   };
 }
 
@@ -187,36 +201,50 @@ async function getImageDPI(file: File): Promise<number> {
 const MAX_PRINTABLE_WIDTH = 400; // px for mockup display
 const MAX_PRINTABLE_HEIGHT = 400; // px for mockup display
 
+async function fetchImageAsDataURL(url: string): Promise<string> {
+  const res = await fetch(url, { mode: "cors", credentials: "omit" });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch image: ${res.status}`);
+  }
+  const blob = await res.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Failed to convert blob to data URL"));
+      }
+    };
+    reader.onerror = () => reject(reader.error || new Error("Failed to read blob"));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export default function Customize() {
   const { addItemToCart } = useCart();
+  const navigate = useNavigate();
   const location = useLocation() as any;
   // Step management
   const [step, setStep] = useState<Step>("product");
-  useEffect(() => {
-    const load = async () => {
-      if (step === "product" && products.length === 0) {
-        setLoading(true);
-        try {
-          const allProducts = await fetchProducts();
-          setProducts(allProducts);
-        } catch {
-          toast.error("Failed to load products");
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
-  
+
   // Data state
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState("M");
-  
+  const templateSelectionHandledRef = useRef(false);
+  const [templateInfo, setTemplateInfo] = useState<{ id: string; imageUrl: string } | null>(null);
+  const [templateApplied, setTemplateApplied] = useState(false);
+  const [templates, setTemplates] = useState<TemplateAsset[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
+  const [templatePopoverOpen, setTemplatePopoverOpen] = useState(false);
+  const [instructionDialogOpen, setInstructionDialogOpen] = useState(false);
+  const [orderInstruction, setOrderInstruction] = useState("");
+  const templateImageCache = useRef<Record<string, string>>({});
+
   // Canvas state
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
@@ -320,6 +348,95 @@ export default function Customize() {
   const [loading, setLoading] = useState(false);
   const [savingDesign, setSavingDesign] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      if (step === "product" && products.length === 0) {
+        setLoading(true);
+        try {
+          const allProducts = await fetchProducts();
+          setProducts(allProducts);
+        } catch {
+          toast.error("Failed to load products");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, products.length]);
+
+  useEffect(() => {
+    const selection = (location as any)?.state?.templateSelection;
+    if (!selection || templateSelectionHandledRef.current) return;
+
+    templateSelectionHandledRef.current = true;
+
+    const initializeFromTemplate = async () => {
+      try {
+        setLoading(true);
+        let currentProducts = products;
+        if (!currentProducts.length) {
+          currentProducts = await fetchProducts();
+          setProducts(currentProducts);
+        }
+        const product = currentProducts.find((item) => item._id === selection.productId);
+        if (product) {
+          setSelectedProduct(product);
+          setSelectedColor(product.variants?.[0]?.color || null);
+          setStep("design");
+          setTemplateInfo({ id: selection.templateId, imageUrl: selection.imageUrl });
+          setTemplateApplied(false);
+          toast.success("Template applied. Customize your design!");
+        } else {
+          setTemplateInfo(null);
+          toast.error("Selected product is unavailable.");
+        }
+      } catch (err) {
+        setTemplateInfo(null);
+        toast.error("Unable to load template. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeFromTemplate();
+
+    const currentState = { ...((location as any)?.state || {}) };
+    if (currentState.templateSelection) {
+      delete currentState.templateSelection;
+      navigate(location.pathname, {
+        replace: true,
+        state: Object.keys(currentState).length ? currentState : null,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, products, navigate]);
+
+  useEffect(() => {
+    let active = true;
+    const loadTemplates = async () => {
+      try {
+        setTemplatesLoading(true);
+        const data = await fetchTemplates();
+        if (!active) return;
+        setTemplates(Array.isArray(data) ? data : []);
+        setTemplatesError(null);
+      } catch (error: any) {
+        if (!active) return;
+        setTemplatesError(error?.message || "Failed to load templates");
+      } finally {
+        if (active) setTemplatesLoading(false);
+      }
+    };
+
+    loadTemplates();
+
+    return () => {
+      active = false;
+    };
+  }, []);
   
   // Pricing
   const basePrice = selectedProduct?.price || 0;
@@ -600,6 +717,108 @@ export default function Customize() {
       }
     }
   }, [designSide, fabricCanvas, step, selectedProduct, selectedColor, showBackground]);
+
+  useEffect(() => {
+    if (!fabricCanvas || !templateInfo || templateApplied || step !== "design") return;
+    if (!selectedProduct || !selectedColor) return;
+
+    const currentSide = designSide;
+
+    // Remove existing template layers before adding a new one
+    const objects = fabricCanvas.getObjects();
+    const targetLayerRef =
+      currentSide === "front" ? frontDesignLayersRef.current : backDesignLayersRef.current;
+    const templateLayerIds = new Set(
+      targetLayerRef.filter((layer) => layer.id.startsWith("template-")).map((layer) => layer.id)
+    );
+
+    if (templateLayerIds.size > 0) {
+      objects
+        .filter((obj: any) => obj.layerId && templateLayerIds.has(obj.layerId))
+        .forEach((obj) => fabricCanvas.remove(obj));
+      fabricCanvas.renderAll();
+      if (currentSide === "front") {
+        setFrontDesignLayers((prev) =>
+          prev.filter((layer) => !templateLayerIds.has(layer.id))
+        );
+      } else {
+        setBackDesignLayers((prev) =>
+          prev.filter((layer) => !templateLayerIds.has(layer.id))
+        );
+      }
+    }
+
+    const loadTemplate = async () => {
+      try {
+        const cacheKey = `${templateInfo.imageUrl}`;
+        let source = templateImageCache.current[cacheKey];
+        if (!source) {
+          source = await fetchImageAsDataURL(templateInfo.imageUrl);
+          templateImageCache.current[cacheKey] = source;
+        }
+
+        const img = await FabricImage.fromURL(source);
+
+        const maxWidth = 280;
+        const maxHeight = 280;
+        const originalWidth = img.width || maxWidth;
+        const originalHeight = img.height || maxHeight;
+        const scale = Math.min(maxWidth / originalWidth, maxHeight / originalHeight, 1);
+
+        img.set({
+          left: 110,
+          top: 180,
+          scaleX: scale,
+          scaleY: scale,
+          selectable: true,
+        });
+        configureObjectControls(img);
+
+        const layerId = `template-${templateInfo.id}-${currentSide}`;
+        (img as any).name = "custom-image";
+        (img as any).layerId = layerId;
+        (img as any).designSide = currentSide;
+        (img as any).designSizeId = selectedDesignSize;
+
+        fabricCanvas.add(img);
+        fabricCanvas.setActiveObject(img);
+        fabricCanvas.renderAll();
+
+        const newLayer: DesignLayer = {
+          id: layerId,
+          type: "image",
+          data: {
+            url: source,
+            x: img.left || 0,
+            y: img.top || 0,
+            scale: img.scaleX || 1,
+            rotation: img.angle || 0,
+          },
+          cost: selectedProduct?.customizationPricing?.perImageLayer || 20,
+          designSizeId: selectedDesignSize,
+        };
+
+        if (currentSide === "front") {
+          setFrontDesignLayers((prev) => {
+            const filtered = prev.filter((layer) => !layer.id.startsWith("template-"));
+            return [...filtered, newLayer];
+          });
+        } else {
+          setBackDesignLayers((prev) => {
+            const filtered = prev.filter((layer) => !layer.id.startsWith("template-"));
+            return [...filtered, newLayer];
+          });
+        }
+        setTemplateApplied(true);
+      } catch (error) {
+        console.error("Failed to load template image", error);
+        toast.error("Failed to load template image");
+        setTemplateApplied(true);
+      }
+    };
+
+    loadTemplate();
+  }, [fabricCanvas, templateInfo, templateApplied, selectedProduct, selectedColor, selectedDesignSize, designSide, step]);
 
   // Toggle background photo on/off
   useEffect(() => {
@@ -961,6 +1180,16 @@ export default function Customize() {
       setLoading(false);
     }
   };
+
+  const handleTemplateSelect = useCallback(
+    (template: TemplateAsset) => {
+      setTemplateInfo({ id: template._id, imageUrl: template.image.url });
+      setTemplateApplied(false);
+      setTemplatePopoverOpen(false);
+      toast.success("Template applied to canvas");
+    },
+    []
+  );
 
   const handleProductSelect = async (product: Product) => {
     setSelectedProduct(product);
@@ -1425,21 +1654,10 @@ export default function Customize() {
   };
 
 
-  const handleAddToCart = async () => {
-    if (!fabricCanvas || !selectedProduct || !selectedColor) {
-      toast.error("Please complete all steps before adding to cart");
-      return;
-    }
-    
-    // Check if user is authenticated
+  const prepareCartItem = async () => {
     const token = localStorage.getItem('token');
-    if (!token) {
-      toast.error("Please login to add items to cart");
-      return;
-    }
-    
-    setAddingToCart(true);
-    
+    if (!token) throw new Error("Please login to add items to cart");
+
     try {
       console.log("[Customize] Starting add to cart process...");
       console.log("[Customize] User token exists:", !!token);
@@ -1586,7 +1804,7 @@ export default function Customize() {
       const backPreviewImage = await generatePreviewForSide('back');
 
       // Prepare cart item data
-      const cartItem = {
+      const cartItem: any = {
         productId: selectedProduct._id,
         productName: selectedProduct.name,
         productSlug: selectedProduct.slug,
@@ -1616,8 +1834,7 @@ export default function Customize() {
       console.log("[Customize] Cart item size:", cartItemSize, "bytes");
       
       if (cartItemSize > 15 * 1024 * 1024) { // 15MB safety margin
-        toast.error("Design data is too large. Please reduce image size or remove some elements.");
-        return;
+        throw new Error("Design data is too large. Please reduce image size or remove some elements.");
       }
       
       console.log("[Customize] Cart item prepared:", cartItem);
@@ -1625,10 +1842,41 @@ export default function Customize() {
       console.log("[Customize] Front design preview image start:", cartItem.frontDesign.previewImage?.substring(0, 50));
       
       // Add to cart via context
-      await addItemToCart(cartItem);
+      return cartItem;
     } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!fabricCanvas || !selectedProduct || !selectedColor) {
+      toast.error("Please complete all steps before adding to cart");
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error("Please login to add items to cart");
+      return;
+    }
+
+    setAddingToCart(true);
+
+    try {
+      const cartItem = await prepareCartItem();
+      if (!cartItem) {
+        throw new Error("Unable to prepare cart item.");
+      }
+      if (orderInstruction.trim()) {
+        cartItem.instruction = orderInstruction.trim();
+      }
+
+      await addItemToCart(cartItem);
+      setOrderInstruction("");
+      setInstructionDialogOpen(false);
+    } catch (error: any) {
       console.error("[Customize] Add to cart error:", error);
-      toast.error("Failed to add to cart");
+      toast.error(error?.message || "Failed to add to cart");
     } finally {
       setAddingToCart(false);
     }
@@ -2222,7 +2470,68 @@ export default function Customize() {
             <CardContent className="p-6">
               {/* Design Size Selector */}
               <div className="mb-6 pb-6 border-b">
-                <Label className="mb-3 block text-base font-semibold">Design Size</Label>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <Label className="text-base font-semibold">Design Size</Label>
+                  <Popover open={templatePopoverOpen} onOpenChange={setTemplatePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-1"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Templates
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 p-0" align="end">
+          <Command>
+            <CommandInput placeholder="Search templates..." />
+            <CommandEmpty>
+              {templatesLoading ? (
+                <span className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading templates...
+                </span>
+              ) : templatesError ? (
+                templatesError
+              ) : (
+                "No templates found."
+              )}
+            </CommandEmpty>
+            <CommandList>
+              <div className="max-h-64 overflow-y-auto px-3 pb-3">
+                <div className="grid grid-cols-3 gap-2">
+                  {templates.map((template) => {
+                    const isActive = templateInfo?.id === template._id;
+                    return (
+                      <button
+                        key={template._id}
+                        type="button"
+                        onClick={() => handleTemplateSelect(template)}
+                        className={`relative flex aspect-square items-center justify-center overflow-hidden rounded-md border transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                          isActive ? "border-primary ring-2 ring-primary/40" : "border-border hover:border-primary/60"
+                        }`}
+                      >
+                        <img
+                          src={template.image?.url}
+                          alt={template.name || "Template preview"}
+                          className="h-full w-full object-cover"
+                        />
+                        {isActive && (
+                          <span className="absolute bottom-1 left-1 right-1 rounded bg-primary/80 px-1 text-[10px] font-medium text-white">
+                            Selected
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </CommandList>
+          </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   {STANDARD_DESIGN_SIZES.map((size) => (
                     <Button
@@ -2352,7 +2661,18 @@ export default function Customize() {
 
               <div className="mt-6 space-y-3 border-t pt-6">
                 <Button 
-                  onClick={handleAddToCart} 
+                  onClick={() => {
+                    if (!fabricCanvas || !selectedProduct || !selectedColor) {
+                      toast.error("Please complete all steps before adding to cart");
+                      return;
+                    }
+                    const token = localStorage.getItem('token');
+                    if (!token) {
+                      toast.error("Please login to add items to cart");
+                      return;
+                    }
+                    setInstructionDialogOpen(true);
+                  }}
                   className="w-full gradient-hero shadow-primary"
                   disabled={addingToCart}
                 >
@@ -2389,6 +2709,53 @@ export default function Customize() {
       </div>
 
       <Footer />
+
+      <Dialog
+        open={instructionDialogOpen}
+        onOpenChange={(open) => {
+          setInstructionDialogOpen(open)
+          if (!open && !addingToCart) {
+            setOrderInstruction("")
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Special Instructions</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Share any notes for printing, packaging, or delivery. Leave blank if you have no extra requests.
+          </p>
+          <Textarea
+            placeholder="e.g. Print logo 2cm higher, deliver before 5 PM..."
+            value={orderInstruction}
+            onChange={(e) => setOrderInstruction(e.target.value)}
+            rows={5}
+          />
+          <DialogFooter className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setInstructionDialogOpen(false)
+                setOrderInstruction("")
+              }}
+              disabled={addingToCart}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAddToCart} disabled={addingToCart}>
+              {addingToCart ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add to Cart"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

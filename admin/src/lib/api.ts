@@ -18,6 +18,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken()
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
+    headers['X-Admin-Token'] = token
     console.log('Sending request with token:', token.substring(0, 20) + '...')
   } else {
     console.log('No token found for request to:', path)
@@ -69,6 +70,24 @@ export const api = {
     request<{ success: boolean; data: any }>(`/admin/orders/${id}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
+    }),
+
+  // Templates
+  getTemplates: () =>
+    request<{ success: boolean; data: any[] }>(`/templates`),
+  createTemplate: (form: FormData) =>
+    request<{ success: boolean; data: any }>(`/templates`, {
+      method: 'POST',
+      body: form,
+    }),
+  updateTemplate: (id: string, form: FormData) =>
+    request<{ success: boolean; data: any }>(`/templates/${id}`, {
+      method: 'PUT',
+      body: form,
+    }),
+  deleteTemplate: (id: string) =>
+    request<{ success: boolean; message: string }>(`/templates/${id}`, {
+      method: 'DELETE',
     }),
 
   // Products

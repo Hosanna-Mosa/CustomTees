@@ -83,6 +83,7 @@ export const createOrderFromCart = async (req, res) => {
         product: cartItem.productId,
         quantity: cartItem.quantity,
         price: cartItem.totalPrice,
+        instruction: cartItem.instruction,
         customDesign: {
           frontDesign,
           backDesign,

@@ -11,6 +11,7 @@ import { Settings } from './pages/Settings'
 import { Designs } from './pages/Designs'
 import { HomeSettings } from './pages/HomeSettings'
 import { Coupons } from './pages/Coupons'
+import { Templates } from './pages/Templates'
 import { AdminLayout } from './components/AdminLayout'
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="users" element={<Users />} />
           <Route path="designs" element={<Designs />} />
           <Route path="coupons" element={<Coupons />} />
+          <Route path="templates" element={<Templates />} />
           <Route path="home" element={<HomeSettings />} />
           <Route path="settings" element={<Settings />} />
         </Route>

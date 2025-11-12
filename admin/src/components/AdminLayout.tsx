@@ -14,6 +14,7 @@ export function AdminLayout() {
           <NavLink to="/users">Users</NavLink>
           <NavLink to="/designs">Designs</NavLink>
           <NavLink to="/coupons">Coupons</NavLink>
+          <NavLink to="/templates">Templates</NavLink>
           <NavLink to="/home">Home</NavLink>
           <NavLink to="/settings">Settings</NavLink>
         </nav>
