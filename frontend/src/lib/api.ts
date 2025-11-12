@@ -33,6 +33,11 @@ export const fetchProducts = async () => {
   return (res as any).data;
 };
 
+export const fetchTemplates = async () => {
+  const res = await request('/templates');
+  return (res as any).data;
+};
+
 export const fetchProductBySlug = async (slug: string) => {
   const res = await request(`/products/${slug}`);
   return (res as any).data;
