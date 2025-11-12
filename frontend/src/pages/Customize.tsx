@@ -31,6 +31,8 @@ import { useCart } from "@/contexts/CartContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandInput, CommandList } from "@/components/ui/command";
 import { Loader2, Sparkles } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 // Types
 type Step = "category" | "product" | "design";
@@ -239,6 +241,8 @@ export default function Customize() {
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [templatePopoverOpen, setTemplatePopoverOpen] = useState(false);
+  const [instructionDialogOpen, setInstructionDialogOpen] = useState(false);
+  const [orderInstruction, setOrderInstruction] = useState("");
   const templateImageCache = useRef<Record<string, string>>({});
 
   // Canvas state
@@ -1635,21 +1639,10 @@ export default function Customize() {
   };
 
 
-  const handleAddToCart = async () => {
-    if (!fabricCanvas || !selectedProduct || !selectedColor) {
-      toast.error("Please complete all steps before adding to cart");
-      return;
-    }
-    
-    // Check if user is authenticated
+  const prepareCartItem = async () => {
     const token = localStorage.getItem('token');
-    if (!token) {
-      toast.error("Please login to add items to cart");
-      return;
-    }
-    
-    setAddingToCart(true);
-    
+    if (!token) throw new Error("Please login to add items to cart");
+
     try {
       console.log("[Customize] Starting add to cart process...");
       console.log("[Customize] User token exists:", !!token);
@@ -1796,7 +1789,7 @@ export default function Customize() {
       const backPreviewImage = await generatePreviewForSide('back');
 
       // Prepare cart item data
-      const cartItem = {
+      const cartItem: any = {
         productId: selectedProduct._id,
         productName: selectedProduct.name,
         productSlug: selectedProduct.slug,
@@ -1826,8 +1819,7 @@ export default function Customize() {
       console.log("[Customize] Cart item size:", cartItemSize, "bytes");
       
       if (cartItemSize > 15 * 1024 * 1024) { // 15MB safety margin
-        toast.error("Design data is too large. Please reduce image size or remove some elements.");
-        return;
+        throw new Error("Design data is too large. Please reduce image size or remove some elements.");
       }
       
       console.log("[Customize] Cart item prepared:", cartItem);
@@ -1835,10 +1827,41 @@ export default function Customize() {
       console.log("[Customize] Front design preview image start:", cartItem.frontDesign.previewImage?.substring(0, 50));
       
       // Add to cart via context
-      await addItemToCart(cartItem);
+      return cartItem;
     } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!fabricCanvas || !selectedProduct || !selectedColor) {
+      toast.error("Please complete all steps before adding to cart");
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error("Please login to add items to cart");
+      return;
+    }
+
+    setAddingToCart(true);
+
+    try {
+      const cartItem = await prepareCartItem();
+      if (!cartItem) {
+        throw new Error("Unable to prepare cart item.");
+      }
+      if (orderInstruction.trim()) {
+        cartItem.instruction = orderInstruction.trim();
+      }
+
+      await addItemToCart(cartItem);
+      setOrderInstruction("");
+      setInstructionDialogOpen(false);
+    } catch (error: any) {
       console.error("[Customize] Add to cart error:", error);
-      toast.error("Failed to add to cart");
+      toast.error(error?.message || "Failed to add to cart");
     } finally {
       setAddingToCart(false);
     }
@@ -2617,7 +2640,18 @@ export default function Customize() {
 
               <div className="mt-6 space-y-3 border-t pt-6">
                 <Button 
-                  onClick={handleAddToCart} 
+                  onClick={() => {
+                    if (!fabricCanvas || !selectedProduct || !selectedColor) {
+                      toast.error("Please complete all steps before adding to cart");
+                      return;
+                    }
+                    const token = localStorage.getItem('token');
+                    if (!token) {
+                      toast.error("Please login to add items to cart");
+                      return;
+                    }
+                    setInstructionDialogOpen(true);
+                  }}
                   className="w-full gradient-hero shadow-primary"
                   disabled={addingToCart}
                 >
@@ -2654,6 +2688,53 @@ export default function Customize() {
       </div>
 
       <Footer />
+
+      <Dialog
+        open={instructionDialogOpen}
+        onOpenChange={(open) => {
+          setInstructionDialogOpen(open)
+          if (!open && !addingToCart) {
+            setOrderInstruction("")
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Special Instructions</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Share any notes for printing, packaging, or delivery. Leave blank if you have no extra requests.
+          </p>
+          <Textarea
+            placeholder="e.g. Print logo 2cm higher, deliver before 5 PM..."
+            value={orderInstruction}
+            onChange={(e) => setOrderInstruction(e.target.value)}
+            rows={5}
+          />
+          <DialogFooter className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setInstructionDialogOpen(false)
+                setOrderInstruction("")
+              }}
+              disabled={addingToCart}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAddToCart} disabled={addingToCart}>
+              {addingToCart ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add to Cart"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
