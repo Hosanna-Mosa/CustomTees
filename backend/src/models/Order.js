@@ -2,7 +2,26 @@ import mongoose from 'mongoose';
 
 const orderItemSchema = new mongoose.Schema(
   {
-    product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+    product: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'items.productModel',
+      required: true,
+    },
+    productModel: {
+      type: String,
+      enum: ['Product', 'CasualProduct'],
+      default: 'Product',
+    },
+    productType: {
+      type: String,
+      enum: ['custom', 'casual'],
+      default: 'custom',
+    },
+    productName: { type: String, required: true },
+    productSlug: { type: String },
+    productImage: { type: String },
+    selectedColor: { type: String },
+    selectedSize: { type: String },
     quantity: { type: Number, default: 1 },
     price: { type: Number, required: true }, // snapshot in cents
     customDesign: {
@@ -32,8 +51,6 @@ const orderItemSchema = new mongoose.Schema(
         },
         previewImage: { type: String },
       },
-      selectedColor: { type: String },
-      selectedSize: { type: String },
     },
     instruction: { type: String, trim: true },
   },

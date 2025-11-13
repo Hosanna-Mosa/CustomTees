@@ -30,11 +30,26 @@ const userSchema = new mongoose.Schema(
     designs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Design' }],
     cart: [
       {
-        productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+        productId: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: 'productModel',
+          required: true,
+        },
+        productModel: {
+          type: String,
+          enum: ['Product', 'CasualProduct'],
+          default: 'Product',
+        },
+        productType: {
+          type: String,
+          enum: ['custom', 'casual'],
+          default: 'custom',
+        },
         productName: { type: String, required: true },
         productSlug: { type: String, required: true },
-        selectedColor: { type: String, required: true },
-        selectedSize: { type: String, required: true },
+        productImage: { type: String },
+        selectedColor: { type: String },
+        selectedSize: { type: String },
         frontDesign: {
           designData: { type: Object },
           designLayers: [{ type: Object }],

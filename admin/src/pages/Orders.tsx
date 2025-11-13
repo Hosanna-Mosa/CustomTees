@@ -19,11 +19,17 @@ type OrderDetails = Order & {
     phone?: string;
   };
   items: Array<{
-    product: {
+    productName?: string;
+    productImage?: string;
+    productType?: 'custom' | 'casual';
+    selectedColor?: string;
+    selectedSize?: string;
+    product?: {
       name: string;
       slug: string;
       price: number;
       variants: any[];
+      images?: Array<{ url: string }>;
     };
     quantity: number;
     price: number;
@@ -484,42 +490,67 @@ export function Orders() {
               {/* Order Items */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>Order Items</h4>
-                {selectedOrder.items?.map((item, index) => (
-                  <div key={index} className="card" style={{ marginBottom: '12px' }}>
-                    <div className="detail-row">
-                      <span className="label">Product:</span>
-                      <span className="value">{item.product?.name || 'Unknown Product'}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">Quantity:</span>
-                      <span className="value">{item.quantity}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">Price:</span>
-                      <span className="value">₹{(item.price / 100).toFixed(2)}</span>
-                    </div>
-                    {item.instruction && (
+                {selectedOrder.items?.map((item, index) => {
+                  const casualPreview = !item.customDesign
+                    ? item.productImage || item.product?.images?.[0]?.url
+                    : null;
+                  const displayProductName = item.product?.name || item.productName || `Item ${index + 1}`;
+                  const displayColor = item.customDesign?.selectedColor || item.selectedColor;
+                  const displaySize = item.customDesign?.selectedSize || item.selectedSize;
+
+                  return (
+                    <div key={index} className="card" style={{ marginBottom: '12px' }}>
+                      {casualPreview && (
+                        <div
+                          style={{
+                            marginBottom: 12,
+                            borderRadius: 12,
+                            overflow: 'hidden',
+                            border: '1px solid var(--border)',
+                            maxWidth: 220,
+                          }}
+                        >
+                          <img
+                            src={casualPreview}
+                            alt={displayProductName}
+                            style={{ width: '100%', height: 'auto', display: 'block' }}
+                          />
+                        </div>
+                      )}
+
                       <div className="detail-row">
-                        <span className="label">Instruction:</span>
-                        <span className="value" style={{ whiteSpace: 'pre-wrap' }}>{item.instruction}</span>
+                        <span className="label">Product:</span>
+                        <span className="value">{displayProductName}</span>
                       </div>
-                    )}
-                    
-                    {/* Custom Design Information */}
-                    {item.customDesign && (
-                      <>
+                      <div className="detail-row">
+                        <span className="label">Quantity:</span>
+                        <span className="value">{item.quantity}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="label">Price:</span>
+                        <span className="value">₹{(item.price / 100).toFixed(2)}</span>
+                      </div>
+                      {displayColor && (
                         <div className="detail-row">
                           <span className="label">Color:</span>
-                          <span className="value">{item.customDesign.selectedColor}</span>
+                          <span className="value">{displayColor}</span>
                         </div>
+                      )}
+                      {displaySize && (
                         <div className="detail-row">
                           <span className="label">Size:</span>
-                          <span className="value">{item.customDesign.selectedSize}</span>
+                          <span className="value">{displaySize}</span>
                         </div>
-                      </>
-                    )}
-                  </div>
-                ))}
+                      )}
+                      {item.instruction && (
+                        <div className="detail-row">
+                          <span className="label">Instruction:</span>
+                          <span className="value" style={{ whiteSpace: 'pre-wrap' }}>{item.instruction}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

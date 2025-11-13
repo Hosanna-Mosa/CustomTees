@@ -9,7 +9,8 @@ export function AdminLayout() {
         <div className="brand">CustomTees Admin</div>
         <nav>
           <NavLink to="/" end>Dashboard</NavLink>
-          <NavLink to="/products">Products</NavLink>
+          <NavLink to="/products">Custom Products</NavLink>
+          <NavLink to="/casual-products">Casual Products</NavLink>
           <NavLink to="/orders">Orders</NavLink>
           <NavLink to="/users">Users</NavLink>
           <NavLink to="/designs">Designs</NavLink>
