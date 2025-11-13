@@ -60,7 +60,7 @@ export default function Cart() {
             <ShoppingBag className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
             <h1 className="mb-2 text-2xl font-bold">Your Cart is Empty</h1>
             <p className="mb-6 text-muted-foreground">
-              Start designing your custom t-shirt to add items to your cart!
+            Start shopping to add items to your cart!
             </p>
             <Button asChild>
               <a href="/customize">Start Designing</a>
@@ -93,9 +93,9 @@ export default function Cart() {
                   <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 md:gap-6">
                     {/* Product Image */}
                     <div className="w-full sm:w-24 md:w-32 h-40 sm:h-24 md:h-32 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-muted to-muted/50 shadow-md">
-                      {item.frontDesign?.previewImage ? (
+                      {item.frontDesign?.previewImage || item.productImage ? (
                         <img
-                          src={item.frontDesign.previewImage}
+                          src={item.frontDesign?.previewImage || item.productImage}
                           alt={item.productName}
                           className="h-full w-full object-cover"
                         />
@@ -113,25 +113,29 @@ export default function Cart() {
                           {item.productName}
                         </h3>
                         <div className="flex flex-wrap gap-2 text-xs sm:text-sm text-muted-foreground">
-                          <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
-                            Size: {item.selectedSize}
-                          </span>
-                          <span className="px-2 py-0.5 bg-secondary/50 rounded-full">
-                            {item.selectedColor}
-                          </span>
+                          {item.selectedSize && (
+                            <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
+                              Size: {item.selectedSize}
+                            </span>
+                          )}
+                          {item.selectedColor && (
+                            <span className="px-2 py-0.5 bg-secondary/50 rounded-full">
+                              {item.selectedColor}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs sm:text-sm text-muted-foreground space-y-0.5">
                           <p>
                             Base: <span className="font-medium text-foreground">₹{item.basePrice.toFixed(2)}</span>
                           </p>
-                          {item.frontCustomizationCost > 0 && (
+                          {(item.frontCustomizationCost ?? 0) > 0 && (
                             <p>
-                              Front Design: <span className="font-medium text-foreground">₹{item.frontCustomizationCost.toFixed(2)}</span>
+                              Front Design: <span className="font-medium text-foreground">₹{(item.frontCustomizationCost ?? 0).toFixed(2)}</span>
                             </p>
                           )}
-                          {item.backCustomizationCost > 0 && (
+                          {(item.backCustomizationCost ?? 0) > 0 && (
                             <p>
-                              Back Design: <span className="font-medium text-foreground">₹{item.backCustomizationCost.toFixed(2)}</span>
+                              Back Design: <span className="font-medium text-foreground">₹{(item.backCustomizationCost ?? 0).toFixed(2)}</span>
                             </p>
                           )}
                         </div>

@@ -133,6 +133,27 @@ export const deleteDesign = async (req, res) => {
 export const addToCart = async (req, res) => {
   try {
     const cartItem = req.body;
+    if (!cartItem?.productId || !cartItem?.productName || !cartItem?.productSlug) {
+      return res.status(400).json({ success: false, message: 'Missing product information for cart item' });
+    }
+
+    if (!cartItem.productModel) {
+      cartItem.productModel =
+        cartItem.productType === 'casual' ? 'CasualProduct' : 'Product';
+    }
+
+    if (!cartItem.productType) {
+      cartItem.productType =
+        cartItem.productModel === 'CasualProduct' ? 'casual' : 'custom';
+    }
+
+    if (!cartItem.selectedColor) {
+      cartItem.selectedColor = cartItem.productType === 'custom' ? 'Default' : '';
+    }
+    if (!cartItem.selectedSize) {
+      cartItem.selectedSize = cartItem.productType === 'custom' ? 'Default' : '';
+    }
+
     if (cartItem?.instruction) {
       cartItem.instruction = String(cartItem.instruction).trim();
       if (!cartItem.instruction) {
@@ -173,10 +194,13 @@ export const addToCart = async (req, res) => {
     };
 
     try {
-      console.log(`\n[Cart] Adding product '${cartItem?.productName}' (${cartItem?.selectedColor}/${cartItem?.selectedSize})`);
+      console.log(`\n[Cart] Adding product '${cartItem?.productName}' (${cartItem?.selectedColor || '—'}/${cartItem?.selectedSize || '—'})`);
+      console.log(`- Type: ${cartItem?.productType}`);
       console.log(`- Base: ${rupee(cartItem?.basePrice)} | Front: ${rupee(cartItem?.frontCustomizationCost)} | Back: ${rupee(cartItem?.backCustomizationCost)} | Total: ${rupee(cartItem?.totalPrice)}`);
-      logSide('front', cartItem?.frontDesign);
-      logSide('back', cartItem?.backDesign);
+      if (cartItem?.productType === 'custom') {
+        logSide('front', cartItem?.frontDesign);
+        logSide('back', cartItem?.backDesign);
+      }
     } catch (e) {
       console.warn('[Cart] Failed to log metrics:', e?.message);
     }

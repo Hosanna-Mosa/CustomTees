@@ -1,14 +1,29 @@
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
+import CasualProduct from '../models/CasualProduct.js';
 import User from '../models/User.js';
 import Coupon from '../models/Coupon.js';
 import { uploadDataUrl } from '../services/cloudinary.service.js';
 
 export const createOrder = async (req, res) => {
   const { productId, quantity = 1, paymentMethod, shippingAddress } = req.body;
-  const product = await Product.findById(productId);
+  let product = await Product.findById(productId);
+  let productModel = 'Product';
+  if (!product) {
+    product = await CasualProduct.findById(productId);
+    productModel = 'CasualProduct';
+  }
   if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
-  const item = { product: product._id, quantity, price: product.price };
+  const item = {
+    product: product._id,
+    productModel,
+    productType: productModel === 'Product' ? 'custom' : 'casual',
+    productName: product.name,
+    productSlug: product.slug,
+    productImage: product.images?.[0]?.url,
+    quantity,
+    price: product.price,
+  };
   const total = product.price * quantity;
   const order = await Order.create({
     user: req.user._id,
@@ -77,19 +92,29 @@ export const createOrderFromCart = async (req, res) => {
     // Convert cart items to order items (with normalized previews)
     const orderItems = [];
     for (const cartItem of user.cart) {
-      const frontDesign = await normalizeSideDesign(cartItem.frontDesign);
-      const backDesign = await normalizeSideDesign(cartItem.backDesign);
+      const isCustom = cartItem.productType === 'custom';
+      const frontDesign = isCustom ? await normalizeSideDesign(cartItem.frontDesign) : undefined;
+      const backDesign = isCustom ? await normalizeSideDesign(cartItem.backDesign) : undefined;
       orderItems.push({
         product: cartItem.productId,
+        productModel: cartItem.productModel || (isCustom ? 'Product' : 'CasualProduct'),
+        productType: cartItem.productType || (isCustom ? 'custom' : 'casual'),
+        productName: cartItem.productName,
+        productSlug: cartItem.productSlug,
+        productImage: cartItem.productImage,
+        selectedColor: cartItem.selectedColor,
+        selectedSize: cartItem.selectedSize,
         quantity: cartItem.quantity,
         price: cartItem.totalPrice,
         instruction: cartItem.instruction,
-        customDesign: {
-          frontDesign,
-          backDesign,
-          selectedColor: cartItem.selectedColor,
-          selectedSize: cartItem.selectedSize,
-        },
+        customDesign: isCustom
+          ? {
+              frontDesign,
+              backDesign,
+              selectedColor: cartItem.selectedColor,
+              selectedSize: cartItem.selectedSize,
+            }
+          : undefined,
       });
     }
     
@@ -150,7 +175,9 @@ export const createOrderFromCart = async (req, res) => {
 };
 
 export const myOrders = async (req, res) => {
-  const orders = await Order.find({ user: req.user._id }).populate('items.product').sort({ createdAt: -1 });
+  const orders = await Order.find({ user: req.user._id })
+    .populate('items.product')
+    .sort({ createdAt: -1 });
   console.log('Orders being returned:', JSON.stringify(orders, null, 2));
   res.json({ success: true, data: orders });
 };

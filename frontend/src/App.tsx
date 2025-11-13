@@ -9,6 +9,7 @@ import { ScrollToTop } from "./components/ScrollToTop";
 import Home from "./pages/Home";
 import Customize from "./pages/Customize";
 import Products from "./pages/Products";
+import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import NotFound from "./pages/NotFound";
 import Checkout from "./pages/Checkout";
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/" element={<Home />} />
             <Route path="/customize" element={<Customize />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/products/:slug" element={<ProductDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />

@@ -116,26 +116,25 @@ export default function Orders() {
                     </CardHeader>
                     <CardContent className="p-4 sm:p-6 space-y-4">
                       {order.items?.map((item: any, index: number) => {
-                        // Debug: Log the item structure to understand the data
-                        console.log('Order item:', item);
-                        console.log('Custom design:', item.customDesign);
-                        console.log('Product:', item.product);
+                        const imageSrc =
+                          item.customDesign?.frontDesign?.previewImage ||
+                          item.customDesign?.backDesign?.previewImage ||
+                          item.frontDesign?.previewImage ||
+                          item.backDesign?.previewImage ||
+                          item.productImage ||
+                          item.product?.images?.[0]?.url ||
+                          item.product?.image;
                         
-                        // For cart-based orders, use custom design preview, otherwise use product image
-                        // Check both possible structures: customDesign (from order) and direct frontDesign (from cart)
-                        const imageSrc = item.customDesign?.frontDesign?.previewImage || 
-                                       item.customDesign?.backDesign?.previewImage ||
-                                       item.frontDesign?.previewImage ||
-                                       item.backDesign?.previewImage ||
-                                       item.product?.images?.[0]?.url || 
-                                       item.product?.image;
-                        
-                        console.log('Image source:', imageSrc);
-                        console.log('Image source length:', imageSrc?.length);
-                        console.log('Image source type:', typeof imageSrc);
-                        
-                        const selectedSize = item.customDesign?.selectedSize || item.selectedSize || 'N/A';
-                        const selectedColor = item.customDesign?.selectedColor || item.selectedColor || 'N/A';
+                        const selectedSize =
+                          item.customDesign?.selectedSize ||
+                          item.selectedSize ||
+                          item.product?.sizes?.[0] ||
+                          '—';
+                        const selectedColor =
+                          item.customDesign?.selectedColor ||
+                          item.selectedColor ||
+                          item.product?.colors?.[0] ||
+                          '—';
                         
                         return (
                           <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl border border-muted-foreground/10">
@@ -160,7 +159,7 @@ export default function Orders() {
                             </div>
                             <div className="flex-1 min-w-0 w-full sm:w-auto">
                               <h4 className="font-bold text-sm sm:text-base mb-1.5 sm:mb-2 line-clamp-2">
-                                {item.product?.name || 'Custom Product'}
+                                {item.product?.name || item.productName || 'Casual Product'}
                               </h4>
                               <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                                 {(item.customDesign || item.frontDesign || item.backDesign) ? (

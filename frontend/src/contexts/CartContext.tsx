@@ -5,25 +5,28 @@ import { toast } from 'sonner';
 interface CartItem {
   _id: string;
   productId: string;
+  productModel?: 'Product' | 'CasualProduct';
+  productType?: 'custom' | 'casual';
   productName: string;
   productSlug: string;
-  selectedColor: string;
-  selectedSize: string;
-  frontDesign: {
-    designData: any;
-    designLayers: any[];
-    previewImage: string;
+  productImage?: string;
+  selectedColor?: string;
+  selectedSize?: string;
+  frontDesign?: {
+    designData?: any;
+    designLayers?: any[];
+    previewImage?: string;
     metrics?: any;
   };
-  backDesign: {
-    designData: any;
-    designLayers: any[];
-    previewImage: string;
+  backDesign?: {
+    designData?: any;
+    designLayers?: any[];
+    previewImage?: string;
     metrics?: any;
   };
   basePrice: number;
-  frontCustomizationCost: number;
-  backCustomizationCost: number;
+  frontCustomizationCost?: number;
+  backCustomizationCost?: number;
   totalPrice: number;
   quantity: number;
   addedAt: string;

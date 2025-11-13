@@ -14,6 +14,7 @@ import orderRoutes from './src/routes/order.routes.js';
 import settingRoutes from './src/routes/setting.routes.js';
 import couponRoutes from './src/routes/coupon.routes.js';
 import templateRoutes from './src/routes/template.routes.js';
+import casualProductRoutes from './src/routes/casualProduct.routes.js';
 import { notFound, errorHandler } from './src/middlewares/error.middleware.js';
 
 dotenv.config();
@@ -44,6 +45,7 @@ if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 // API
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/casual-products', casualProductRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/settings', settingRoutes);

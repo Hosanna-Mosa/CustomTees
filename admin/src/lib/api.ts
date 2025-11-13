@@ -104,6 +104,24 @@ export const api = {
     method: 'DELETE',
   }),
 
+  // Casual Products
+  getCasualProducts: () => request<{ success: boolean; data: any[] }>(`/casual-products`),
+  getCasualProduct: (id: string) => request<{ success: boolean; data: any }>(`/casual-products/${id}`),
+  createCasualProduct: (form: FormData) =>
+    request<{ success: boolean; data: any }>(`/casual-products`, {
+      method: 'POST',
+      body: form,
+    }),
+  updateCasualProduct: (id: string, form: FormData) =>
+    request<{ success: boolean; data: any }>(`/casual-products/${id}`, {
+      method: 'PUT',
+      body: form,
+    }),
+  deleteCasualProduct: (id: string) =>
+    request<{ success: boolean; message: string }>(`/casual-products/${id}`, {
+      method: 'DELETE',
+    }),
+
   // Designs
   getDesigns: (page: number = 1) => request<{ success: boolean; data: any[]; pagination: any }>(`/admin/designs?page=${page}`),
 
