@@ -184,6 +184,17 @@ export const getAllShippingOptions = async (destination: any, weight?: number) =
   return (res as any).data;
 };
 
+// Tracking
+export const getTrackingDetails = async (trackingNumber: string) => {
+  const res = await request(`/tracking/${trackingNumber}`);
+  return (res as any).data;
+};
+
+export const getOrderTrackingDetails = async (orderId: string) => {
+  const res = await request(`/tracking/order/${orderId}`);
+  return (res as any).data;
+};
+
 export default { request };
 
 

@@ -1,6 +1,23 @@
 import { useEffect, useState } from 'react'
 import api from '@/lib/api'
 
+type TrackingEvent = {
+  status?: string
+  code?: string
+  description?: string
+  location?: string
+  date?: string
+}
+
+type TrackingSummary = {
+  status?: string
+  description?: string
+  code?: string
+  estimatedDelivery?: string
+  lastLocation?: string
+  updatedAt?: string
+}
+
 type Order = { 
   _id: string; 
   total?: number; 
@@ -13,6 +30,10 @@ type Order = {
   trackingNumber?: string;
   labelUrl?: string;
   shipmentStatus?: string;
+  trackingHistory?: TrackingEvent[];
+  trackingSummary?: TrackingSummary;
+  carrierHandoffAt?: string;
+  deliveredAt?: string;
 }
 
 type OrderDetails = Order & {
@@ -98,6 +119,35 @@ type OrderDetails = Order & {
   }>;
 }
 
+const SHIPMENT_STAGES = [
+  { key: 'pending', title: 'Label Pending', hint: 'Order placed' },
+  { key: 'label_generated', title: 'Label Generated', hint: 'UPS label ready' },
+  { key: 'carrier_handoff', title: 'Handed to UPS', hint: 'Box handed to carrier' },
+  { key: 'in_transit', title: 'In Transit', hint: 'UPS scans updating' },
+  { key: 'delivered', title: 'Delivered', hint: 'Customer notified' },
+]
+
+const shipmentStatusLabels: Record<string, { label: string; color: string }> = {
+  pending: { label: 'Pending', color: '#94a3b8' },
+  label_generated: { label: 'Label Generated', color: '#0ea5e9' },
+  carrier_handoff: { label: 'Carrier Handoff', color: '#6366f1' },
+  in_transit: { label: 'In Transit', color: '#f59e0b' },
+  delivered: { label: 'Delivered', color: '#10b981' },
+}
+
+const formatDateTime = (value?: string | Date | null) => {
+  if (!value) return '—'
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleString()
+}
+
+const getShipmentStageIndex = (status?: string) => {
+  if (!status) return 0
+  const idx = SHIPMENT_STAGES.findIndex((stage) => stage.key === status)
+  return idx === -1 ? 0 : idx
+}
+
 type PackageField = 'weight' | 'length' | 'width' | 'height';
 const PACKAGE_FIELDS: PackageField[] = ['weight', 'length', 'width', 'height'];
 
@@ -110,6 +160,8 @@ export function Orders() {
   const [zoomedImage, setZoomedImage] = useState<string | null>(null)
   const [activeItemIndex, setActiveItemIndex] = useState<number>(0)
   const [labelLoading, setLabelLoading] = useState(false)
+  const [handoffLoading, setHandoffLoading] = useState(false)
+  const [trackingLoading, setTrackingLoading] = useState(false)
   const [packageForm, setPackageForm] = useState<Record<PackageField, string>>({
     weight: '1',
     length: '10',
@@ -118,6 +170,8 @@ export function Orders() {
   })
   const apiBase = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8000/api'
   const fileBase = typeof apiBase === 'string' ? apiBase.replace(/\/api$/, '') : 'http://localhost:8000'
+  const storefrontBase = (import.meta as any).env?.VITE_STOREFRONT_URL || 'http://localhost:5173'
+  const storefrontUrl = typeof storefrontBase === 'string' ? storefrontBase.replace(/\/$/, '') : 'http://localhost:5173'
   const hasStoredLabel = Boolean(selectedOrder?.trackingNumber || selectedOrder?.labelUrl)
   const labelDownloadPath =
     selectedOrder && (selectedOrder.labelUrl || `/uploads/labels/${selectedOrder._id}.pdf`)
@@ -181,6 +235,16 @@ export function Orders() {
     }
   }
 
+  async function reloadOrder(orderId: string) {
+    const response = await api.getOrderById(orderId)
+    const orderData = response.data as OrderDetails
+    setSelectedOrder(orderData)
+    setOrders((prev) =>
+      prev.map((order) => (order._id === orderId ? { ...order, ...orderData } : order))
+    )
+    return orderData
+  }
+
   async function handleGenerateLabel() {
     if (!selectedOrder) return
     try {
@@ -221,12 +285,43 @@ export function Orders() {
             : order
         )
       )
+      await reloadOrder(selectedOrder._id)
     } catch (e: any) {
       console.error('[Admin] UPS label generation failed', e)
       setError(e.message || 'Failed to generate UPS label')
     } finally {
       console.log('[Admin] Finished UPS label generation flow')
       setLabelLoading(false)
+    }
+  }
+
+  async function handleHandoffToUps() {
+    if (!selectedOrder) return
+    try {
+      setHandoffLoading(true)
+      setError(null)
+      await api.handoffShipment(selectedOrder._id)
+      await reloadOrder(selectedOrder._id)
+    } catch (e: any) {
+      console.error('[Admin] UPS handoff update failed', e)
+      setError(e.message || 'Failed to mark UPS handoff')
+    } finally {
+      setHandoffLoading(false)
+    }
+  }
+
+  async function handleRefreshTracking() {
+    if (!selectedOrder) return
+    try {
+      setTrackingLoading(true)
+      setError(null)
+      await api.refreshTrackingForOrder(selectedOrder._id)
+      await reloadOrder(selectedOrder._id)
+    } catch (e: any) {
+      console.error('[Admin] UPS tracking refresh failed', e)
+      setError(e.message || 'Failed to refresh UPS tracking')
+    } finally {
+      setTrackingLoading(false)
     }
   }
 
@@ -273,6 +368,14 @@ export function Orders() {
     activeItem?.customDesign?.frontDesign?.previewImage ||
     activeItem?.customDesign?.backDesign?.previewImage
   )
+  const shipmentStatus = selectedOrder?.shipmentStatus || 'pending'
+  const shipmentStageIndex = getShipmentStageIndex(shipmentStatus)
+  const shipmentStatusMeta = shipmentStatusLabels[shipmentStatus] || shipmentStatusLabels.pending
+  const trackingTimeline = selectedOrder?.trackingHistory || []
+  const trackingSummary = selectedOrder?.trackingSummary || null
+  const canMarkHandoff =
+    !!selectedOrder?.trackingNumber &&
+    !['carrier_handoff', 'in_transit', 'delivered'].includes(shipmentStatus)
 
   return (
     <section>
@@ -562,8 +665,17 @@ export function Orders() {
 
               {/* Shipping Label */}
               <div style={{ marginBottom: '24px' }}>
-                <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>UPS Shipping Label</h4>
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>UPS Shipping & Tracking</h4>
                 <div className="card">
+                  <div className="detail-row">
+                    <span className="label">Shipment Status:</span>
+                    <span
+                      className="value"
+                      style={{ color: shipmentStatusMeta.color, fontWeight: 600, textTransform: 'capitalize' }}
+                    >
+                      {shipmentStatusMeta.label}
+                    </span>
+                  </div>
                   {hasStoredLabel ? (
                     <>
                       <div className="detail-row">
@@ -645,6 +757,147 @@ export function Orders() {
                       <span className="value">Order marked as shipped. Label information not available.</span>
                     </div>
                   )}
+
+                  {trackingSummary && (
+                    <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                      <h5 style={{ margin: '0 0 12px 0', fontSize: 15, fontWeight: 600 }}>Latest UPS Scan</h5>
+                      <div className="detail-row">
+                        <span className="label">Message:</span>
+                        <span className="value">{trackingSummary.description || '—'}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="label">Last Location:</span>
+                        <span className="value">{trackingSummary.lastLocation || '—'}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="label">Estimated Delivery:</span>
+                        <span className="value">{formatDateTime(trackingSummary.estimatedDelivery)}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="label">Last Update:</span>
+                        <span className="value">{formatDateTime(trackingSummary.updatedAt)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedOrder?.trackingNumber && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 16 }}>
+                      {canMarkHandoff && (
+                        <button
+                          className="primary-btn"
+                          onClick={handleHandoffToUps}
+                          disabled={handoffLoading}
+                        >
+                          {handoffLoading ? 'Saving...' : 'Mark Handed to UPS'}
+                        </button>
+                      )}
+                      <button
+                        className="primary-btn"
+                        style={{ background: '#f5f5f5', color: '#111', border: '1px solid var(--border)' }}
+                        onClick={handleRefreshTracking}
+                        disabled={trackingLoading}
+                      >
+                        {trackingLoading ? 'Syncing...' : 'Refresh Tracking'}
+                      </button>
+                      <a
+                        href={`${storefrontUrl}/track/${selectedOrder.trackingNumber}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="primary-btn"
+                        style={{
+                          textDecoration: 'none',
+                          background: '#0f172a',
+                          color: '#fff',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        Open Tracking Page →
+                      </a>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: 20 }}>
+                    <h5 style={{ margin: '0 0 12px 0', fontSize: 15, fontWeight: 600 }}>Fulfillment Progress</h5>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                      {SHIPMENT_STAGES.map((stage, index) => {
+                        const isActive = index <= shipmentStageIndex
+                        const marker = index < shipmentStageIndex ? '✓' : index === shipmentStageIndex ? '●' : '○'
+                        return (
+                          <li
+                            key={stage.key}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: 12,
+                              marginBottom: 10,
+                              color: isActive ? '#111' : '#94a3b8',
+                            }}
+                          >
+                            <span style={{ fontWeight: 700, minWidth: 18 }}>{marker}</span>
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{stage.title}</div>
+                              <div style={{ fontSize: 12, color: '#64748b' }}>{stage.hint}</div>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+
+                  <div style={{ marginTop: 20 }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: 12,
+                      }}
+                    >
+                      <h5 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>UPS Tracking Timeline</h5>
+                      {selectedOrder?.trackingNumber && (
+                        <button
+                          className="primary-btn"
+                          style={{ background: '#f5f5f5', color: '#111', border: '1px solid var(--border)' }}
+                          onClick={handleRefreshTracking}
+                          disabled={trackingLoading}
+                        >
+                          {trackingLoading ? 'Syncing...' : 'Refresh'}
+                        </button>
+                      )}
+                    </div>
+                    {trackingTimeline.length ? (
+                      <div style={{ maxHeight: 260, overflowY: 'auto', paddingRight: 4 }}>
+                        {trackingTimeline.map((event, index) => (
+                          <div
+                            key={`${event.date}-${event.code}-${index}`}
+                            style={{
+                              padding: '10px 12px',
+                              borderRadius: 10,
+                              border: '1px solid var(--border)',
+                              marginBottom: 10,
+                              background: 'var(--panel)',
+                            }}
+                          >
+                            <div style={{ fontSize: 12, color: '#475569', marginBottom: 4 }}>
+                              {formatDateTime(event.date)}
+                            </div>
+                            <div style={{ fontWeight: 600 }}>
+                              {event.description || event.status || 'Status update'}
+                            </div>
+                            {event.location && (
+                              <div style={{ fontSize: 12, color: '#475569' }}>{event.location}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ margin: 0, fontSize: 14, color: '#475569' }}>
+                        No UPS scans yet. Refresh after the first carrier scan.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 

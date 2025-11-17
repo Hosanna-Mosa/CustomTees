@@ -88,6 +88,19 @@ export const api = {
       body: JSON.stringify(packageInfo),
     }),
 
+  handoffShipment: (orderId: string) =>
+    request<{ success: boolean; data: any }>(`/shipment/handoff/${orderId}`, {
+      method: 'POST',
+    }),
+
+  refreshTrackingForOrder: (orderId: string) =>
+    request<{ success: boolean; data: any }>(`/tracking/order/${orderId}`),
+
+  triggerTrackingSync: () =>
+    request<{ success: boolean; data: any }>(`/tracking/sync`, {
+      method: 'POST',
+    }),
+
   // Templates
   getTemplates: () =>
     request<{ success: boolean; data: any[] }>(`/templates`),
