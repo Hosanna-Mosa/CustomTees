@@ -19,6 +19,8 @@ import casualProductRoutes from './src/routes/casualProduct.routes.js';
 import shippingRoutes from './src/routes/shipping.routes.js';
 import shipmentRoutes from './src/routes/shipment.routes.js';
 import { notFound, errorHandler } from './src/middlewares/error.middleware.js';
+import trackingRoutes from './src/routes/tracking.routes.js';
+import { startTrackingSyncJob } from './src/services/tracking.service.js';
 
 dotenv.config();
 const app = express();
@@ -64,6 +66,7 @@ app.use('/api/coupons', couponRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/shipping', shippingRoutes);
 app.use('/api/shipment', shipmentRoutes);
+app.use('/api/tracking', trackingRoutes);
 
 
 app.get('/api/health', (req, res) => res.json({ success: true, message: 'OK' }));
@@ -73,6 +76,9 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`API running on port ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`API running on port ${PORT}`);
+    startTrackingSyncJob();
+});
 
 
