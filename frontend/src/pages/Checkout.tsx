@@ -9,10 +9,10 @@ import { Separator } from '@/components/ui/separator'
 import { Navbar } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
 import { AddressSelector } from '@/components/AddressSelector'
-import { createOrderFromCart, getMe, getActiveCoupons, applyCoupon } from '@/lib/api'
+import { createOrderFromCart, getMe, getActiveCoupons, applyCoupon, getShippingRate, getAllShippingOptions } from '@/lib/api'
 import { useCart } from '@/contexts/CartContext'
 import { useAuth } from '@/hooks/use-auth'
-import { ShoppingBag, CreditCard, Truck, Shield, Tag, X } from 'lucide-react'
+import { ShoppingBag, CreditCard, Truck, Shield, Tag, X, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 
 type AppliedCoupon = {
@@ -37,6 +37,18 @@ export default function Checkout() {
   const [availableCoupons, setAvailableCoupons] = useState<any[]>([])
   const [applyingCoupon, setApplyingCoupon] = useState(false)
   const couponInputRef = useRef<HTMLInputElement>(null)
+  const [shippingCost, setShippingCost] = useState(0)
+  const [loadingShipping, setLoadingShipping] = useState(false)
+  const [shippingError, setShippingError] = useState<string | null>(null)
+  const [shippingOptions, setShippingOptions] = useState<any[]>([])
+  const [selectedShippingOption, setSelectedShippingOption] = useState<string | null>(null)
+  const [transitInfo, setTransitInfo] = useState<{
+    transitDays?: number
+    estimatedDelivery?: string
+    deliveryTime?: string
+    isGuaranteed?: boolean
+    serviceName?: string
+  } | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -50,10 +62,10 @@ export default function Checkout() {
     }
   }, [isAuthenticated, cartItems.length, navigate])
 
-  useEffect(() => {
-    // Load user addresses
-    getMe().then((res: any) => {
-      const addresses = res.data?.addresses || []
+  const loadUserAddresses = async () => {
+    try {
+      const res = await getMe()
+      const addresses = (res as any).data?.addresses || []
       setUserAddresses(addresses)
       
       // Auto-select default address if available; otherwise if there is exactly one address, select it
@@ -63,9 +75,15 @@ export default function Checkout() {
       } else if (addresses.length === 1) {
         setSelectedAddressId(addresses[0]._id)
       }
-    }).catch(() => {
+    } catch (error) {
       // User might not be logged in, that's okay
-    })
+      console.error('Failed to load addresses:', error)
+    }
+  }
+
+  useEffect(() => {
+    // Load user addresses
+    loadUserAddresses()
 
     // Load active coupons
     getActiveCoupons().then((coupons) => {
@@ -75,13 +93,215 @@ export default function Checkout() {
     })
   }, [])
 
+  // Handle address updates - refresh addresses and recalculate shipping
+  const handleAddressUpdate = async () => {
+    // Store the currently selected address ID before refreshing
+    const currentSelectedId = selectedAddressId
+    
+    // Refresh addresses from server
+    try {
+      const res = await getMe()
+      const addresses = (res as any).data?.addresses || []
+      setUserAddresses(addresses)
+      
+      // If we had a selected address, try to keep it selected (in case it was just updated)
+      if (currentSelectedId) {
+        const stillExists = addresses.find((addr: any) => addr._id === currentSelectedId)
+        if (stillExists) {
+          // Keep the same address selected - this will trigger shipping recalculation
+          setSelectedAddressId(currentSelectedId)
+          return
+        }
+      }
+      
+      // Otherwise, auto-select default or first address
+      const defaultAddr = addresses.find((addr: any) => addr.isDefault)
+      if (defaultAddr) {
+        setSelectedAddressId(defaultAddr._id)
+      } else if (addresses.length === 1) {
+        setSelectedAddressId(addresses[0]._id)
+      }
+    } catch (error) {
+      console.error('Failed to refresh addresses:', error)
+    }
+    // The shipping calculation useEffect will automatically trigger when userAddresses/selectedAddressId updates
+  }
+
+  // Fetch all shipping options when address is selected
+  useEffect(() => {
+    if (!selectedAddressId) {
+      setShippingCost(0)
+      setShippingError(null)
+      setShippingOptions([])
+      setSelectedShippingOption(null)
+      setTransitInfo(null)
+      return
+    }
+
+    const selectedAddress = userAddresses.find(addr => addr._id === selectedAddressId)
+    if (!selectedAddress || !selectedAddress.city || !selectedAddress.postalCode) {
+      setShippingCost(0)
+      setShippingError(null)
+      setShippingOptions([])
+      setSelectedShippingOption(null)
+      setTransitInfo(null)
+      return
+    }
+
+    // Calculate total weight (estimate 0.5 lbs per item)
+    const estimatedWeight = Math.max(1, Math.ceil(cartItems.length * 0.5))
+
+    setLoadingShipping(true)
+    setShippingError(null)
+    setShippingOptions([])
+    setSelectedShippingOption(null)
+
+    getAllShippingOptions(
+      {
+        name: selectedAddress.fullName || 'Customer',
+        addressLine: selectedAddress.line1,
+        line1: selectedAddress.line1,
+        line2: selectedAddress.line2,
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        stateProvinceCode: selectedAddress.state,
+        postalCode: selectedAddress.postalCode,
+        country: selectedAddress.country || 'US',
+        countryCode: selectedAddress.country || 'US',
+      },
+      estimatedWeight
+    )
+      .then((result) => {
+        console.log('[Checkout] Shipping options response:', result) // Debug log
+        const options = result?.options || []
+        setShippingOptions(options)
+        setShippingError(null)
+        
+        // Auto-select the first option (usually fastest/cheapest)
+        if (options.length > 0) {
+          const firstOption = options[0]
+          setSelectedShippingOption(firstOption.serviceCode)
+          setShippingCost(firstOption.cost || 0)
+          
+          // Set transit info for selected option
+          if (firstOption.transitDays || firstOption.estimatedDelivery) {
+            setTransitInfo({
+              transitDays: firstOption.transitDays,
+              estimatedDelivery: firstOption.estimatedDelivery,
+              deliveryTime: firstOption.deliveryTime,
+              isGuaranteed: firstOption.isGuaranteed,
+              serviceName: firstOption.serviceName,
+            })
+          } else {
+            setTransitInfo(null)
+          }
+        } else {
+          setShippingError('No shipping options available')
+          setShippingCost(0)
+          setTransitInfo(null)
+        }
+      })
+      .catch((error) => {
+        console.error('Shipping options error:', error)
+        
+        // Extract the actual error message from the API response
+        let errorMessage = 'Unable to calculate shipping. Please contact support.'
+        
+        if (error && typeof error === 'object') {
+          if (error.message) {
+            errorMessage = error.message
+          } else if (error.error) {
+            errorMessage = error.error
+          }
+        } else if (typeof error === 'string') {
+          errorMessage = error
+        }
+        
+        // Make error message more user-friendly
+        errorMessage = errorMessage
+          .replace(/^\[UPS\]\s*/i, '')
+          .replace(/^\[Shipping\]\s*/i, '')
+          .replace(/^Failed to calculate shipping rate:\s*/i, '')
+          .trim()
+        
+        // Format common UPS error messages to be more user-friendly
+        if (errorMessage.includes('postal code') && errorMessage.includes('invalid')) {
+          // Extract postal code and state from error message
+          const postalMatch = errorMessage.match(/postal code\s+(\d+)/i)
+          const stateMatch = errorMessage.match(/for\s+([A-Z]{2})/i)
+          if (postalMatch && stateMatch) {
+            errorMessage = `Invalid postal code ${postalMatch[1]} for ${stateMatch[1]}. Please check your address.`
+          } else {
+            errorMessage = `Address validation error: ${errorMessage}`
+          }
+        } else if (errorMessage.includes('City and postal code are required')) {
+          errorMessage = 'Please ensure your address has a valid city and postal code.'
+        } else if (errorMessage.includes('Destination address is required')) {
+          errorMessage = 'Please select a shipping address.'
+        } else if (errorMessage.includes('Authentication') || errorMessage.includes('credentials')) {
+          errorMessage = 'Shipping service temporarily unavailable. Please try again later.'
+        }
+        
+        setShippingError(errorMessage)
+        setShippingCost(0)
+        setShippingOptions([])
+        setSelectedShippingOption(null)
+        setTransitInfo(null)
+      })
+      .finally(() => {
+        setLoadingShipping(false)
+      })
+  }, [selectedAddressId, userAddresses, cartItems.length])
+
+  // Handle shipping option selection
+  const handleShippingOptionSelect = (serviceCode: string) => {
+    const option = shippingOptions.find(opt => opt.serviceCode === serviceCode)
+    if (option) {
+      setSelectedShippingOption(serviceCode)
+      setShippingCost(option.cost || 0)
+      setTransitInfo({
+        transitDays: option.transitDays,
+        estimatedDelivery: option.estimatedDelivery,
+        deliveryTime: option.deliveryTime,
+        isGuaranteed: option.isGuaranteed,
+        serviceName: option.serviceName,
+      })
+    }
+  }
+
   const subtotal = useMemo(() => {
     return cartItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0)
   }, [cartItems])
 
   const total = useMemo(() => {
-    return Math.max(0, subtotal - discountAmount)
-  }, [subtotal, discountAmount])
+    // shippingCost is in cents, convert to dollars for calculation
+    const shippingInDollars = shippingCost / 100
+    return Math.max(0, subtotal - discountAmount + shippingInDollars)
+  }, [subtotal, discountAmount, shippingCost])
+
+  // Format delivery date from UPS format (YYYYMMDD) to readable format
+  const formatDeliveryDate = (dateStr?: string) => {
+    if (!dateStr) return null
+    try {
+      // Handle both YYYYMMDD and YYYY-MM-DD formats
+      const cleanDate = dateStr.replace(/-/g, '')
+      if (cleanDate.length === 8) {
+        const year = cleanDate.substring(0, 4)
+        const month = cleanDate.substring(4, 6)
+        const day = cleanDate.substring(6, 8)
+        const date = new Date(`${year}-${month}-${day}`)
+        return date.toLocaleDateString('en-US', { 
+          weekday: 'short',
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        })
+      }
+      return dateStr
+    } catch {
+      return dateStr
+    }
+  }
 
   const handleApplyCoupon = async (code?: string) => {
     // If code is provided (from clicking a coupon), use it directly
@@ -120,7 +340,7 @@ export default function Checkout() {
       })
       setDiscountAmount(result.discountAmount)
       setCouponCode('')
-      toast.success(`Coupon "${result.coupon.code}" applied! Discount: ₹${result.discountAmount.toFixed(2)}`)
+      toast.success(`Coupon "${result.coupon.code}" applied! Discount: $${result.discountAmount.toFixed(2)}`)
     } catch (e: any) {
       const errorMessage = typeof e === 'object' && e !== null && 'message' in e 
         ? String(e.message) 
@@ -194,7 +414,10 @@ export default function Checkout() {
         paymentMethod,
         shippingAddress: selectedAddress,
         couponCode: appliedCoupon?.code || null,
-        discountAmount: discountAmount > 0 ? discountAmount : null
+        discountAmount: discountAmount > 0 ? discountAmount : null,
+        shippingCost: shippingCost > 0 ? shippingCost : null,
+        shippingServiceCode: selectedShippingOption || null,
+        shippingServiceName: transitInfo?.serviceName || null
       })
       const order = (res as any).data || res
       
@@ -285,7 +508,7 @@ export default function Checkout() {
                             Coupon Applied: {appliedCoupon.code}
                           </p>
                           <p className="text-xs sm:text-sm text-green-700 mt-1">
-                            Discount: <span className="font-semibold">₹{discountAmount.toFixed(2)}</span>
+                            Discount: <span className="font-semibold">${discountAmount.toFixed(2)}</span>
                             {appliedCoupon.description && ` - ${appliedCoupon.description}`}
                           </p>
                         </div>
@@ -316,7 +539,7 @@ export default function Checkout() {
                                   <span className="text-primary font-semibold">
                                     {coupon.discountType === 'percentage'
                                       ? `${coupon.discountValue}% OFF`
-                                      : `₹${coupon.discountValue} OFF`}
+                                      : `$${coupon.discountValue} OFF`}
                                   </span>
                                 </div>
                                 {coupon.description && (
@@ -324,7 +547,7 @@ export default function Checkout() {
                                 )}
                                 {coupon.minPurchase > 0 && (
                                   <p className="text-muted-foreground mt-1 text-xs">
-                                    Min. purchase: ₹{coupon.minPurchase}
+                                    Min. purchase: ${coupon.minPurchase}
                                   </p>
                                 )}
                               </div>
@@ -377,16 +600,16 @@ export default function Checkout() {
                         </div>
                         <div className="text-xs sm:text-sm text-muted-foreground space-y-0.5 mb-2">
                           <p>
-                            Base: <span className="font-medium text-foreground">₹{item.basePrice.toFixed(2)}</span>
+                            Base: <span className="font-medium text-foreground">${item.basePrice.toFixed(2)}</span>
                           </p>
                           {(item.frontCustomizationCost ?? 0) > 0 && (
                             <p>
-                              Front: <span className="font-medium text-foreground">₹{(item.frontCustomizationCost ?? 0).toFixed(2)}</span>
+                              Front: <span className="font-medium text-foreground">${(item.frontCustomizationCost ?? 0).toFixed(2)}</span>
                             </p>
                           )}
                           {(item.backCustomizationCost ?? 0) > 0 && (
                             <p>
-                              Back: <span className="font-medium text-foreground">₹{(item.backCustomizationCost ?? 0).toFixed(2)}</span>
+                              Back: <span className="font-medium text-foreground">${(item.backCustomizationCost ?? 0).toFixed(2)}</span>
                             </p>
                           )}
                         </div>
@@ -395,7 +618,7 @@ export default function Checkout() {
                             Qty: <span className="font-semibold text-foreground">{item.quantity}</span>
                           </Label>
                           <span className="font-bold text-primary text-base sm:text-lg">
-                            ₹{(item.totalPrice * item.quantity).toFixed(2)}
+                            ${(item.totalPrice * item.quantity).toFixed(2)}
                           </span>
                         </div>
                       </div>
@@ -407,23 +630,93 @@ export default function Checkout() {
                   <div className="space-y-2.5">
                     <div className="flex justify-between items-center text-sm sm:text-base">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span className="font-semibold text-foreground">₹{Number(subtotal).toFixed(2)}</span>
+                      <span className="font-semibold text-foreground">${Number(subtotal).toFixed(2)}</span>
                     </div>
                     {discountAmount > 0 && (
                       <div className="flex justify-between items-center text-sm sm:text-base text-green-600">
                         <span>Discount ({appliedCoupon?.code})</span>
-                        <span className="font-semibold">-₹{Number(discountAmount).toFixed(2)}</span>
+                        <span className="font-semibold">-${Number(discountAmount).toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between items-center text-sm sm:text-base">
-                      <span className="text-muted-foreground">Shipping</span>
-                      <span className="font-semibold text-green-600">Free</span>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center text-sm sm:text-base">
+                        <span className="text-muted-foreground">Shipping</span>
+                        {loadingShipping ? (
+                          <span className="text-muted-foreground text-xs">Calculating...</span>
+                        ) : shippingError ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-amber-600 text-xs font-medium">Unable to calculate</span>
+                            <span className="text-amber-600/80 text-[10px] mt-0.5 max-w-[200px] text-right leading-tight">
+                              {shippingError}
+                            </span>
+                          </div>
+                        ) : shippingOptions.length > 0 ? (
+                          <span className="font-semibold text-foreground">${(shippingCost / 100).toFixed(2)}</span>
+                        ) : null}
+                      </div>
+                      
+                      {shippingOptions.length > 0 && (
+                        <RadioGroup
+                          value={selectedShippingOption || ''}
+                          onValueChange={handleShippingOptionSelect}
+                          className="space-y-2"
+                        >
+                          {shippingOptions.map((option) => (
+                            <div
+                              key={option.serviceCode}
+                              className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                selectedShippingOption === option.serviceCode
+                                  ? 'border-primary bg-primary/5'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                              onClick={() => handleShippingOptionSelect(option.serviceCode)}
+                            >
+                              <RadioGroupItem
+                                value={option.serviceCode}
+                                id={`shipping-${option.serviceCode}`}
+                                className="mt-0.5"
+                              />
+                              <label
+                                htmlFor={`shipping-${option.serviceCode}`}
+                                className="flex-1 cursor-pointer"
+                              >
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                  <div className="flex-1">
+                                    <div className="font-medium text-sm">{option.serviceName}</div>
+                                    {(option.transitDays || option.estimatedDelivery) && (
+                                      <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                                        <Clock className="h-3 w-3" />
+                                        <span>
+                                          {option.transitDays 
+                                            ? `Est. ${option.transitDays} ${option.transitDays === 1 ? 'day' : 'days'}`
+                                            : 'Est. delivery'}
+                                          {option.estimatedDelivery && (
+                                            <span className="ml-1">
+                                              {formatDeliveryDate(option.estimatedDelivery)}
+                                            </span>
+                                          )}
+                                          {option.isGuaranteed && (
+                                            <span className="ml-1 text-green-600 font-medium">✓ Guaranteed</span>
+                                          )}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="font-semibold text-sm sm:text-base">
+                                    ${(option.cost / 100).toFixed(2)}
+                                  </div>
+                                </div>
+                              </label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      )}
                     </div>
                     <Separator className="my-3" />
                     <div className="flex justify-between items-center pt-1">
                       <span className="text-base sm:text-lg font-bold text-foreground">Total</span>
                       <span className="text-xl sm:text-2xl font-bold text-primary">
-                        ₹{Number(total).toFixed(2)}
+                        ${Number(total).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -434,6 +727,7 @@ export default function Checkout() {
               <AddressSelector 
                 selectedAddressId={selectedAddressId}
                 onAddressSelect={setSelectedAddressId}
+                onAddressUpdate={handleAddressUpdate}
               />
 
               {/* Payment Method */}

@@ -294,7 +294,7 @@ export default function Home() {
                     </div>
                     <CardContent className="p-3 sm:p-4">
                       <h3 className="font-semibold text-sm sm:text-base">{product.name}</h3>
-                      <p className="text-xs sm:text-sm text-muted-foreground">₹{product.price.toFixed(2)}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">${product.price.toFixed(2)}</p>
                     </CardContent>
                   </Card>
                 </Link>

@@ -200,7 +200,7 @@ export default function Products() {
                         <span>{product.sizes?.length || 0} sizes</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xl font-bold text-primary">₹{product.price.toFixed(2)}</span>
+                        <span className="text-xl font-bold text-primary">${product.price.toFixed(2)}</span>
                         <Button
                           size="sm"
                           className="rounded-full px-4 text-xs"

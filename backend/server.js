@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
 import cors from 'cors';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import connectDB from './src/config/db.js';
@@ -15,10 +16,14 @@ import settingRoutes from './src/routes/setting.routes.js';
 import couponRoutes from './src/routes/coupon.routes.js';
 import templateRoutes from './src/routes/template.routes.js';
 import casualProductRoutes from './src/routes/casualProduct.routes.js';
+import shippingRoutes from './src/routes/shipping.routes.js';
+import shipmentRoutes from './src/routes/shipment.routes.js';
 import { notFound, errorHandler } from './src/middlewares/error.middleware.js';
 
 dotenv.config();
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // DB
 connectDB();
@@ -42,6 +47,12 @@ app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
+
 // API
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
@@ -51,6 +62,8 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/templates', templateRoutes);
+app.use('/api/shipping', shippingRoutes);
+app.use('/api/shipment', shipmentRoutes);
 
 
 app.get('/api/health', (req, res) => res.json({ success: true, message: 'OK' }));

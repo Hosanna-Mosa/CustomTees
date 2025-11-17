@@ -219,7 +219,7 @@ export const applyCoupon = async (req, res) => {
     if (totalAmount < coupon.minPurchase) {
       return res.status(400).json({
         success: false,
-        message: `Minimum purchase of ₹${coupon.minPurchase} required for this coupon`,
+        message: `Minimum purchase of $${coupon.minPurchase} required for this coupon`,
       });
     }
 

@@ -160,7 +160,7 @@ export const addToCart = async (req, res) => {
         delete cartItem.instruction;
       }
     }
-    const rupee = (n) => `₹${Number(n || 0).toFixed(2)}`;
+    const dollar = (n) => `$${Number(n || 0).toFixed(2)}`;
 
     // Back-office logging for design metrics per requirement
     const logSide = (side, design) => {
@@ -186,7 +186,7 @@ export const addToCart = async (req, res) => {
           console.log(`    - Width: ${layer.widthInches.toFixed(2)}\" (${Math.round(layer.widthPixels)} px)`);
           console.log(`    - Height: ${layer.heightInches.toFixed(2)}\" (${Math.round(layer.heightPixels)} px)`);
           console.log(`    - Area: ${layer.areaInches.toFixed(2)} in² (${Math.round(layer.areaPixels)} px²)`);
-          console.log(`    - Cost: ${rupee(layer.cost)}`);
+          console.log(`    - Cost: ${dollar(layer.cost)}`);
         });
       } else {
         console.log(`  - No design layers`);
@@ -196,7 +196,7 @@ export const addToCart = async (req, res) => {
     try {
       console.log(`\n[Cart] Adding product '${cartItem?.productName}' (${cartItem?.selectedColor || '—'}/${cartItem?.selectedSize || '—'})`);
       console.log(`- Type: ${cartItem?.productType}`);
-      console.log(`- Base: ${rupee(cartItem?.basePrice)} | Front: ${rupee(cartItem?.frontCustomizationCost)} | Back: ${rupee(cartItem?.backCustomizationCost)} | Total: ${rupee(cartItem?.totalPrice)}`);
+      console.log(`- Base: ${dollar(cartItem?.basePrice)} | Front: ${dollar(cartItem?.frontCustomizationCost)} | Back: ${dollar(cartItem?.backCustomizationCost)} | Total: ${dollar(cartItem?.totalPrice)}`);
       if (cartItem?.productType === 'custom') {
         logSide('front', cartItem?.frontDesign);
         logSide('back', cartItem?.backDesign);
@@ -271,6 +271,10 @@ export const clearCart = async (req, res) => {
 
 export const addAddress = async (req, res) => {
   const address = req.body;
+  // Ensure country defaults to 'US' if not provided (for backward compatibility)
+  if (!address.country) {
+    address.country = 'US';
+  }
   req.user.addresses.push(address);
   await req.user.save();
   res.status(201).json({ success: true, data: req.user.addresses });
@@ -280,7 +284,14 @@ export const updateAddress = async (req, res) => {
   const { id } = req.params;
   const addr = req.user.addresses.id(id);
   if (!addr) return res.status(404).json({ success: false, message: 'Address not found' });
-  Object.assign(addr, req.body);
+  
+  // Ensure country defaults to 'US' if not provided or empty (for backward compatibility)
+  const updateData = { ...req.body };
+  if (!updateData.country || updateData.country.trim() === '') {
+    updateData.country = 'US';
+  }
+  
+  Object.assign(addr, updateData);
   await req.user.save();
   res.json({ success: true, data: req.user.addresses });
 };

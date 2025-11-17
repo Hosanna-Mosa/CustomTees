@@ -2,6 +2,7 @@ const renderUrl = 'https://c-t-back.onrender.com/api';
 const local = "http://localhost:8000/api";
 
 const BASE = true ? local : renderUrl;
+export const API_BASE_URL = BASE;
 
 type Method = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
@@ -154,6 +155,31 @@ export const applyCoupon = async (code: string, totalAmount: number) => {
   const res = await request('/coupons/apply', {
     method: 'POST',
     body: { code, totalAmount },
+  });
+  return (res as any).data;
+};
+
+// Shipping
+export const getShippingRate = async (destination: any, weight?: number, serviceCode?: string) => {
+  const res = await request('/shipping/rate', {
+    method: 'POST',
+    body: { destination, weight, serviceCode },
+  });
+  return (res as any).data;
+};
+
+export const getTransitTime = async (destination: any, shipDate?: string) => {
+  const res = await request('/shipping/transit', {
+    method: 'POST',
+    body: { destination, shipDate },
+  });
+  return (res as any).data;
+};
+
+export const getAllShippingOptions = async (destination: any, weight?: number) => {
+  const res = await request('/shipping/options', {
+    method: 'POST',
+    body: { destination, weight },
   });
   return (res as any).data;
 };

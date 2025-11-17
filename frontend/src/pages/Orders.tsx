@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Navbar } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
-import { myOrders } from '@/lib/api'
+import { myOrders, API_BASE_URL } from '@/lib/api'
 import { Package, ShoppingBag, Clock, CheckCircle, XCircle, Truck, ArrowLeft, CreditCard } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -22,6 +22,7 @@ export default function Orders() {
   const [orders, setOrders] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const fileBase = API_BASE_URL.replace(/\/api$/, '')
 
   useEffect(() => {
     myOrders()
@@ -115,6 +116,38 @@ export default function Orders() {
                       </div>
                     </CardHeader>
                     <CardContent className="p-4 sm:p-6 space-y-4">
+                      {order.trackingNumber && (
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-3 rounded-xl bg-muted/40 border border-muted-foreground/20">
+                          <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground">
+                            <Truck className="h-4 w-4 text-primary" />
+                            <div>
+                              <div className="text-xs uppercase tracking-wide text-muted-foreground/80">Tracking Number</div>
+                              <div className="font-semibold text-foreground">{order.trackingNumber}</div>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-3 text-xs sm:text-sm font-medium">
+                            <a
+                              href={`https://www.ups.com/track?loc=en_US&tracknum=${order.trackingNumber}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              View Live Tracking
+                            </a>
+                            {order.labelUrl && (
+                              <a
+                                href={`${fileBase}${order.labelUrl}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                download
+                                className="text-primary hover:underline"
+                              >
+                                Download UPS Label
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       {order.items?.map((item: any, index: number) => {
                         const imageSrc =
                           item.customDesign?.frontDesign?.previewImage ||
@@ -192,7 +225,7 @@ export default function Orders() {
                                   Quantity: <span className="font-semibold text-foreground">{item.quantity}</span>
                                 </span>
                                 <span className="text-base sm:text-lg font-bold text-primary">
-                                  ₹{Number(item.price).toFixed(2)}
+                                  ${Number(item.price).toFixed(2)}
                                 </span>
                               </div>
                             </div>
@@ -215,7 +248,7 @@ export default function Orders() {
                         <div className="text-left sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0">
                           <div className="text-xs sm:text-sm text-muted-foreground mb-1">Total</div>
                           <div className="text-xl sm:text-2xl font-bold text-primary">
-                            ₹{Number(order.total).toFixed(2)}
+                            ${Number(order.total).toFixed(2)}
                           </div>
                         </div>
                       </div>

@@ -219,7 +219,7 @@ export function Coupons() {
                 type="text"
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                placeholder="e.g., 500RS"
+                placeholder="e.g., SAVE20"
                 required
                 disabled={!!editingCoupon}
                 style={{ textTransform: 'uppercase' }}
@@ -234,13 +234,13 @@ export function Coupons() {
                 required
               >
                 <option value="percentage">Percentage (%)</option>
-                <option value="fixed">Fixed Amount (₹)</option>
+                <option value="fixed">Fixed Amount ($)</option>
               </select>
             </div>
 
             <div>
               <label>
-                Discount Value * ({formData.discountType === 'percentage' ? '%' : '₹'})
+                Discount Value * ({formData.discountType === 'percentage' ? '%' : '$'})
               </label>
               <input
                 type="number"
@@ -254,7 +254,7 @@ export function Coupons() {
 
             {formData.discountType === 'percentage' && (
               <div>
-                <label>Max Discount (₹) - Leave empty for no limit</label>
+                <label>Max Discount ($) - Leave empty for no limit</label>
                 <input
                   type="number"
                   value={formData.maxDiscount || ''}
@@ -272,7 +272,7 @@ export function Coupons() {
             )}
 
             <div>
-              <label>Minimum Purchase (₹)</label>
+              <label>Minimum Purchase ($)</label>
               <input
                 type="number"
                 value={formData.minPurchase}
@@ -380,14 +380,14 @@ export function Coupons() {
                     {coupon.discountType === 'percentage' ? (
                       <>
                         {coupon.discountValue}%
-                        {coupon.maxDiscount && ` (max ₹${coupon.maxDiscount})`}
+                        {coupon.maxDiscount && ` (max $${coupon.maxDiscount})`}
                       </>
                     ) : (
-                      <>₹{coupon.discountValue}</>
+                      <>${coupon.discountValue}</>
                     )}
                   </td>
                   <td style={{ padding: '12px' }}>
-                    {coupon.minPurchase > 0 ? `₹${coupon.minPurchase}` : 'No minimum'}
+                    {coupon.minPurchase > 0 ? `$${coupon.minPurchase}` : 'No minimum'}
                   </td>
                   <td style={{ padding: '12px', fontSize: '14px' }}>
                     {formatDate(coupon.validFrom)} - {formatDate(coupon.validTo)}

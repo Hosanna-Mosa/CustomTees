@@ -88,6 +88,15 @@ const orderSchema = new mongoose.Schema(
       code: { type: String },
       discountAmount: { type: Number, default: 0 },
     },
+    shippingCost: { type: Number, default: 0 }, // in cents
+    trackingNumber: { type: String },
+    labelUrl: { type: String },
+    labelPublicId: { type: String },
+    shipmentStatus: {
+      type: String,
+      enum: ['pending', 'label_generated', 'shipped', 'delivered'],
+      default: 'pending',
+    },
   },
   { timestamps: true }
 );

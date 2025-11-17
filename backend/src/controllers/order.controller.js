@@ -37,7 +37,7 @@ export const createOrder = async (req, res) => {
 
 export const createOrderFromCart = async (req, res) => {
   try {
-    const { paymentMethod, shippingAddress, couponCode, discountAmount } = req.body;
+    const { paymentMethod, shippingAddress, couponCode, discountAmount, shippingCost } = req.body;
     
     // Get user with cart
     const user = await User.findById(req.user._id);
@@ -150,8 +150,11 @@ export const createOrderFromCart = async (req, res) => {
       }
     }
     
-    // Calculate final total
-    const total = Math.max(0, subtotal - finalDiscountAmount);
+    // Calculate shipping cost (convert to cents if needed, or use as-is if already in cents)
+    const shippingCostInCents = shippingCost ? (shippingCost < 100 ? Math.round(shippingCost * 100) : shippingCost) : 0;
+    
+    // Calculate final total (subtotal - discount + shipping)
+    const total = Math.max(0, subtotal - finalDiscountAmount + shippingCostInCents);
     
     // Create order
     const order = await Order.create({
@@ -161,6 +164,7 @@ export const createOrderFromCart = async (req, res) => {
       paymentMethod,
       shippingAddress,
       coupon: couponData,
+      shippingCost: shippingCostInCents,
     });
     
     // Clear user's cart after successful order
