@@ -4,6 +4,7 @@ import CasualProduct from '../models/CasualProduct.js';
 import User from '../models/User.js';
 import Coupon from '../models/Coupon.js';
 import { uploadDataUrl } from '../services/cloudinary.service.js';
+import { createSquareCheckoutSession, isSquareConfigured } from '../services/square.service.js';
 
 export const createOrder = async (req, res) => {
   const { productId, quantity = 1, paymentMethod, shippingAddress } = req.body;
@@ -166,12 +167,51 @@ export const createOrderFromCart = async (req, res) => {
       coupon: couponData,
       shippingCost: shippingCostInCents,
     });
+
+    // ensure payment metadata matches selected method
+    order.payment = order.payment || {};
+    order.payment.provider = paymentMethod;
+    order.payment.status = paymentMethod === 'cod' ? 'pending' : 'pending';
+
+    let squareSession = null;
+
+    if (paymentMethod === 'square') {
+      if (!isSquareConfigured()) {
+        return res.status(500).json({ success: false, message: 'Square payments are not configured' });
+      }
+
+      const redirectBase = process.env.CLIENT_BASE_URL || 'http://localhost:8080';
+      const redirectUrl = `${redirectBase.replace(/\/$/, '')}/payments/square-result?localOrderId=${order._id}`;
+
+      try {
+        const session = await createSquareCheckoutSession({
+          order,
+          user,
+          shippingAddress,
+          redirectUrl,
+        });
+        squareSession = session;
+        order.payment.squareCheckoutId = session.checkoutId;
+        order.payment.squareOrderId = session.squareOrderId;
+        order.payment.checkoutUrl = session.checkoutUrl;
+        order.payment.status = 'pending';
+      } catch (squareErr) {
+        console.error('[Orders] Square checkout creation failed:', squareErr);
+        await order.deleteOne();
+        return res.status(502).json({
+          success: false,
+          message: squareErr?.message || 'Failed to initialize Square checkout',
+        });
+      }
+    }
+
+    await order.save();
     
     // Clear user's cart after successful order
     user.cart = [];
     await user.save();
     
-    res.status(201).json({ success: true, data: order });
+    res.status(201).json({ success: true, data: order, squareSession });
   } catch (error) {
     console.error('[Orders] createOrderFromCart failed:', error);
     res.status(500).json({ success: false, message: 'Failed to create order' });

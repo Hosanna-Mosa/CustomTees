@@ -62,11 +62,17 @@ const orderSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     items: { type: [orderItemSchema], validate: v => v.length > 0 },
     total: { type: Number, required: true }, // in cents
-    paymentMethod: { type: String, enum: ['cod', 'razorpay'], required: true },
+    paymentMethod: { type: String, enum: ['cod', 'razorpay', 'square'], required: true },
     payment: {
+      provider: { type: String, enum: ['cod', 'razorpay', 'square'], default: 'cod' },
       razorpayOrderId: String,
       razorpayPaymentId: String,
       razorpaySignature: String,
+      squareCheckoutId: String,
+      squareOrderId: String,
+      squarePaymentId: String,
+      checkoutUrl: String,
+      failureReason: String,
       status: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
     },
     shippingAddress: {
