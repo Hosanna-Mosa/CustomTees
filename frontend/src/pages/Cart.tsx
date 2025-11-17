@@ -126,16 +126,16 @@ export default function Cart() {
                         </div>
                         <div className="text-xs sm:text-sm text-muted-foreground space-y-0.5">
                           <p>
-                            Base: <span className="font-medium text-foreground">₹{item.basePrice.toFixed(2)}</span>
+                            Base: <span className="font-medium text-foreground">${item.basePrice.toFixed(2)}</span>
                           </p>
                           {(item.frontCustomizationCost ?? 0) > 0 && (
                             <p>
-                              Front Design: <span className="font-medium text-foreground">₹{(item.frontCustomizationCost ?? 0).toFixed(2)}</span>
+                              Front Design: <span className="font-medium text-foreground">${(item.frontCustomizationCost ?? 0).toFixed(2)}</span>
                             </p>
                           )}
                           {(item.backCustomizationCost ?? 0) > 0 && (
                             <p>
-                              Back Design: <span className="font-medium text-foreground">₹{(item.backCustomizationCost ?? 0).toFixed(2)}</span>
+                              Back Design: <span className="font-medium text-foreground">${(item.backCustomizationCost ?? 0).toFixed(2)}</span>
                             </p>
                           )}
                         </div>
@@ -184,7 +184,7 @@ export default function Cart() {
                           <div className="text-right sm:text-left">
                             <p className="text-xs text-muted-foreground">Total</p>
                             <span className="text-lg sm:text-xl font-bold text-primary">
-                              ₹{(item.totalPrice * item.quantity).toFixed(2)}
+                              ${(item.totalPrice * item.quantity).toFixed(2)}
                             </span>
                           </div>
                           <Button
@@ -216,18 +216,18 @@ export default function Cart() {
                 <div className="space-y-3 border-b pb-4">
                   <div className="flex justify-between items-center text-sm sm:text-base">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span className="font-semibold text-foreground">₹{subtotal.toFixed(2)}</span>
+                    <span className="font-semibold text-foreground">${subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm sm:text-base">
                     <span className="text-muted-foreground">Shipping</span>
                     <span className={`font-semibold ${shipping === 0 ? 'text-green-600' : 'text-foreground'}`}>
-                      {shipping === 0 ? "FREE" : `₹${shipping.toFixed(2)}`}
+                      {shipping === 0 ? "FREE" : `$${shipping.toFixed(2)}`}
                     </span>
                   </div>
                   {subtotal < 50 && (
                     <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
                       <p className="text-xs text-amber-700">
-                        🎁 Add ₹{(50 - subtotal).toFixed(2)} more for free shipping!
+                        🎁 Add ${(50 - subtotal).toFixed(2)} more for free shipping!
                       </p>
                     </div>
                   )}
@@ -236,7 +236,7 @@ export default function Cart() {
                 <div className="flex justify-between items-center pt-2">
                   <span className="text-base sm:text-lg font-bold text-foreground">Total</span>
                   <span className="text-xl sm:text-2xl font-bold text-primary">
-                    ₹{total.toFixed(2)}
+                    ${total.toFixed(2)}
                   </span>
                 </div>
 

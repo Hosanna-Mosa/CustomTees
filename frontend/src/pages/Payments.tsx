@@ -80,7 +80,7 @@ export default function Payments() {
                   </div>
                   <div className="flex justify-between">
                     <span>Item Price</span>
-                    <span>₹{Number(total).toFixed(2)}</span>
+                    <span>${Number(total).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Shipping</span>
@@ -89,7 +89,7 @@ export default function Payments() {
                   <Separator />
                   <div className="flex justify-between text-xl font-bold">
                     <span>Total Amount</span>
-                    <span className="text-primary">₹{Number(total).toFixed(2)}</span>
+                    <span className="text-primary">${Number(total).toFixed(2)}</span>
                   </div>
                 </div>
               </CardContent>

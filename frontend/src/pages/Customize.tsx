@@ -116,7 +116,7 @@ const STANDARD_DESIGN_SIZES = [
     width: 90, // 3 inches at 300 DPI
     height: 90, 
     description: "3\" × 3\"",
-    price: 50 // Fixed price in ₹
+    price: 50 // Fixed price in $
   },
   { 
     id: "small", 
@@ -124,7 +124,7 @@ const STANDARD_DESIGN_SIZES = [
     width: 150, // 5 inches at 300 DPI
     height: 150, 
     description: "5\" × 5\"",
-    price: 100 // Fixed price in ₹
+    price: 100 // Fixed price in $
   },
   { 
     id: "medium", 
@@ -132,7 +132,7 @@ const STANDARD_DESIGN_SIZES = [
     width: 210, // 7 inches at 300 DPI
     height: 280, // Updated height (280px = ~9.33 inches at 300 DPI)
     description: "7\" × 9.33\"",
-    price: 150 // Fixed price in ₹
+    price: 150 // Fixed price in $
   },
   { 
     id: "large", 
@@ -140,12 +140,12 @@ const STANDARD_DESIGN_SIZES = [
     width: 300, // 10 inches at 300 DPI
     height: 300, 
     description: "10\" × 10\"",
-    price: 200 // Fixed price in ₹
+    price: 200 // Fixed price in $
   },
 ];
 
 // Dynamic pricing: cost derived from rendered object area (in pixels)
-const PRICE_PER_PIXEL = 0.02; // ₹ per pixel area
+const PRICE_PER_PIXEL = 0.02; // $ per pixel area
 const DPI = 300; // standard printing resolution
 const DEFAULT_TEXT_DPI = 300; // default for text layers
 
@@ -1225,7 +1225,7 @@ export default function Customize() {
         perLayer: backPerLayerMetrics 
       });
       
-      console.log(`[Pricing] Front: ₹${frontMaxPrice.toFixed(2)}, Back: ₹${backMaxPrice.toFixed(2)} (based on size presets)`);
+      console.log(`[Pricing] Front: $${frontMaxPrice.toFixed(2)}, Back: $${backMaxPrice.toFixed(2)} (based on size presets)`);
     };
 
     // Debounced update to prevent too many rapid calculations
@@ -2369,7 +2369,7 @@ export default function Customize() {
                               {product.description}
                             </p>
                             <p className="text-lg font-bold text-primary">
-                              ₹{product.price.toFixed(2)}
+                              ${product.price.toFixed(2)}
                             </p>
                           </CardContent>
                         </Card>
@@ -2489,26 +2489,26 @@ export default function Customize() {
                 <div className="space-y-2 sm:space-y-3">
                   <div className="flex justify-between text-xs sm:text-sm">
                     <span className="text-muted-foreground">Base Price:</span>
-                    <span className="font-medium">₹{basePrice.toFixed(2)}</span>
+                    <span className="font-medium">${basePrice.toFixed(2)}</span>
                   </div>
                   
                   {frontCustomizationCost > 0 && (
                     <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-muted-foreground">Front Design:</span>
-                      <span className="font-medium">₹{frontCustomizationCost.toFixed(2)}</span>
+                      <span className="font-medium">${frontCustomizationCost.toFixed(2)}</span>
                     </div>
                   )}
                   
                   {backCustomizationCost > 0 && (
                     <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-muted-foreground">Back Design:</span>
-                      <span className="font-medium">₹{backCustomizationCost.toFixed(2)}</span>
+                      <span className="font-medium">${backCustomizationCost.toFixed(2)}</span>
                     </div>
                   )}
                   
                   <div className="flex justify-between border-t pt-2 text-base sm:text-lg font-bold">
                     <span>Total:</span>
-                    <span className="text-primary">₹{totalPrice.toFixed(2)}</span>
+                    <span className="text-primary">${totalPrice.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -2668,7 +2668,7 @@ export default function Customize() {
                     >
                       <span className="text-xs font-medium leading-tight">{size.name}</span>
                       <span className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{size.description}</span>
-                      <span className="text-xs font-semibold text-primary mt-0.5">₹{size.price}</span>
+                      <span className="text-xs font-semibold text-primary mt-0.5">${size.price}</span>
                     </Button>
                   ))}
                 </div>
@@ -2813,7 +2813,7 @@ export default function Customize() {
                   )}
                 </Button>
                 <p className="text-center text-[10px] sm:text-xs text-muted-foreground">
-                  Free shipping on orders over ₹50
+                  Free shipping on orders over $50
                 </p>
               </div>
             </CardContent>

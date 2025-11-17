@@ -442,7 +442,7 @@ export function Products() {
               
               <div className="form-row">
                 <label>
-                  Price (₹) *
+                  Price ($) *
                   <input
                     type="number"
                     value={formData.price}
@@ -543,7 +543,7 @@ export function Products() {
                 
                 <div className="detail-row">
                   <span className="label">Price:</span>
-                  <span className="value">₹{product.price.toFixed(2)}</span>
+                  <span className="value">${product.price.toFixed(2)}</span>
                 </div>
                 
                 <div className="detail-row">

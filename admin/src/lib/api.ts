@@ -72,6 +72,22 @@ export const api = {
       body: JSON.stringify({ status }),
     }),
 
+  createShipmentLabel: (
+    orderId: string,
+    packageInfo: { weight: string; length: string; width: string; height: string }
+  ) =>
+    request<{
+      success: boolean
+      trackingNumber: string
+      labelUrl: string
+      status?: string
+      shipmentStatus?: string
+      reused?: boolean
+    }>(`/shipment/create-label/${orderId}`, {
+      method: 'POST',
+      body: JSON.stringify(packageInfo),
+    }),
+
   // Templates
   getTemplates: () =>
     request<{ success: boolean; data: any[] }>(`/templates`),
