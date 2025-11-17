@@ -194,6 +194,9 @@ export const verifySquarePayment = async (payload: {
     method: 'POST',
     body: payload,
   });
+  return (res as any).data;
+};
+
 // Tracking
 export const getTrackingDetails = async (trackingNumber: string) => {
   const res = await request(`/tracking/${trackingNumber}`);
