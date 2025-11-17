@@ -100,9 +100,32 @@ const orderSchema = new mongoose.Schema(
     labelPublicId: { type: String },
     shipmentStatus: {
       type: String,
-      enum: ['pending', 'label_generated', 'shipped', 'delivered'],
+      enum: ['pending', 'label_generated', 'carrier_handoff', 'in_transit', 'delivered'],
       default: 'pending',
     },
+    carrierHandoffAt: { type: Date },
+    trackingHistory: [
+      {
+        status: String,
+        description: String,
+        code: String,
+        location: String,
+        date: Date,
+      },
+    ],
+    trackingSummary: {
+      status: String,
+      description: String,
+      code: String,
+      estimatedDelivery: Date,
+      lastLocation: String,
+      updatedAt: Date,
+    },
+    lastTrackingSyncAt: { type: Date },
+    trackingEmailSentAt: { type: Date },
+    deliveryEmailSentAt: { type: Date },
+    deliveredAt: { type: Date },
+    lastTrackingStatusNotified: { type: String },
   },
   { timestamps: true }
 );

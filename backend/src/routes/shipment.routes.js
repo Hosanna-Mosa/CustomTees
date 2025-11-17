@@ -2,6 +2,7 @@ import { Router } from 'express';
 import Order from '../models/Order.js';
 import { protect, verifyAdmin } from '../middlewares/auth.middleware.js';
 import { createUpsShipment } from '../services/ups.service.js';
+import { sendTrackingNotificationEmail } from '../services/email.service.js';
 
 const router = Router();
 
@@ -85,7 +86,7 @@ router.post('/create-label/:orderId', protect, verifyAdmin, async (req, res) => 
     order.labelPublicId = shipmentResult.labelPublicId;
     order.shipmentStatus = 'label_generated';
     order.status = 'shipped';
-    const savedOrder = await order.save();
+    let savedOrder = await order.save();
     console.log('[ShipmentRoute] Order updated after label generation', {
       orderId,
       trackingNumber: savedOrder.trackingNumber,
@@ -93,6 +94,17 @@ router.post('/create-label/:orderId', protect, verifyAdmin, async (req, res) => 
       shipmentStatus: savedOrder.shipmentStatus,
       status: savedOrder.status,
     });
+
+    if (!savedOrder.trackingEmailSentAt && savedOrder.user?.email) {
+      await sendTrackingNotificationEmail({
+        email: savedOrder.user.email,
+        name: savedOrder.user.name,
+        trackingNumber: savedOrder.trackingNumber,
+        orderId: savedOrder._id.toString(),
+      });
+      savedOrder.trackingEmailSentAt = new Date();
+      savedOrder = await savedOrder.save();
+    }
 
     return res.json({
       success: true,
@@ -107,6 +119,44 @@ router.post('/create-label/:orderId', protect, verifyAdmin, async (req, res) => 
     return res.status(500).json({
       success: false,
       message: error.message || 'Unable to generate UPS shipping label',
+    });
+  }
+});
+
+router.post('/handoff/:orderId', protect, verifyAdmin, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await Order.findById(orderId).populate('user', 'name email');
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+    if (!order.trackingNumber) {
+      return res.status(400).json({ success: false, message: 'Tracking number missing for this order' });
+    }
+
+    order.shipmentStatus = 'carrier_handoff';
+    order.status = order.status === 'placed' ? 'shipped' : order.status;
+    order.carrierHandoffAt = new Date();
+
+    const saved = await order.save();
+
+    if (!saved.trackingEmailSentAt && saved.user?.email) {
+      await sendTrackingNotificationEmail({
+        email: saved.user.email,
+        name: saved.user.name,
+        trackingNumber: saved.trackingNumber,
+        orderId: saved._id.toString(),
+      });
+      saved.trackingEmailSentAt = new Date();
+      await saved.save();
+    }
+
+    return res.json({ success: true, data: saved });
+  } catch (error) {
+    console.error('[Shipment] Failed to mark handoff:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Unable to update shipment handoff',
     });
   }
 });
