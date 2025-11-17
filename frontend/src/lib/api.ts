@@ -136,7 +136,7 @@ export const adminDeleteProduct = async (id: string) => {
 };
 
 // Orders
-export const createOrder = async (body: { productId: string; quantity?: number; paymentMethod: 'cod' | 'razorpay'; shippingAddress?: any }) => {
+export const createOrder = async (body: { productId: string; quantity?: number; paymentMethod: 'cod' | 'square'; shippingAddress?: any }) => {
   return request('/orders', { method: 'POST', body });
 };
 
@@ -184,6 +184,16 @@ export const getAllShippingOptions = async (destination: any, weight?: number) =
   return (res as any).data;
 };
 
+export const verifySquarePayment = async (payload: {
+  orderId: string;
+  transactionId?: string;
+  squareOrderId?: string;
+  status?: string;
+}) => {
+  const res = await request('/payments/square/verify', {
+    method: 'POST',
+    body: payload,
+  });
 // Tracking
 export const getTrackingDetails = async (trackingNumber: string) => {
   const res = await request(`/tracking/${trackingNumber}`);

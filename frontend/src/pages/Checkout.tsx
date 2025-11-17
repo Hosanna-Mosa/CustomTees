@@ -26,7 +26,7 @@ export default function Checkout() {
   const navigate = useNavigate()
   const { cartItems, loading: cartLoading } = useCart()
   const { isAuthenticated } = useAuth()
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod')
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'square'>('square')
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const [userAddresses, setUserAddresses] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -421,11 +421,17 @@ export default function Checkout() {
       })
       const order = (res as any).data || res
       
-      toast.success('Order placed successfully!')
-      
-      if (paymentMethod === 'razorpay') {
-        navigate('/payments', { state: { orderId: order._id, total } })
+      if (paymentMethod === 'square') {
+        const checkoutUrl = (res as any)?.squareSession?.checkoutUrl || order?.payment?.checkoutUrl
+        if (checkoutUrl) {
+          toast.success('Redirecting you to Square to complete payment...')
+          window.location.href = checkoutUrl
+          return
+        }
+        toast.error('Unable to start Square checkout. Please contact support.')
+        return
       } else {
+        toast.success('Order placed successfully!')
         navigate('/orders')
       }
     } catch (e: any) {
@@ -739,7 +745,7 @@ export default function Checkout() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 sm:p-6">
-                  <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as 'cod' | 'razorpay')}>
+                  <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as 'cod' | 'square')}>
                     <div className="flex items-center space-x-3 p-4 border-2 rounded-xl hover:bg-muted/50 transition-all cursor-pointer">
                       <RadioGroupItem value="cod" id="cod" />
                       <Label htmlFor="cod" className="flex items-center gap-2 cursor-pointer flex-1">
@@ -748,10 +754,10 @@ export default function Checkout() {
                       </Label>
                     </div>
                     <div className="flex items-center space-x-3 p-4 border-2 rounded-xl hover:bg-muted/50 transition-all cursor-pointer mt-3">
-                      <RadioGroupItem value="razorpay" id="razorpay" />
-                      <Label htmlFor="razorpay" className="flex items-center gap-2 cursor-pointer flex-1">
+                      <RadioGroupItem value="square" id="square" />
+                      <Label htmlFor="square" className="flex items-center gap-2 cursor-pointer flex-1">
                         <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
-                        <span className="text-sm sm:text-base font-medium">Razorpay (Test Mode)</span>
+                        <span className="text-sm sm:text-base font-medium">Square Secure Checkout</span>
                       </Label>
                     </div>
                   </RadioGroup>
