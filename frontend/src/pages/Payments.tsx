@@ -18,26 +18,41 @@ export default function Payments() {
 
   const transactionId = searchParams.get('transactionId')
   const squareOrderId = searchParams.get('orderId')
-  const localOrderId = searchParams.get('localOrderId')
+  const sessionId = searchParams.get('sessionId')
+  const legacyOrderId = searchParams.get('localOrderId')
+  const referenceId = sessionId || legacyOrderId
 
   const [status, setStatus] = useState<Status>('loading')
   const [message, setMessage] = useState('Hold tight, we are confirming your payment...')
   const [order, setOrder] = useState<any>(null)
 
   useEffect(() => {
-    if (!localOrderId) {
+    if (!referenceId) {
       setStatus('failed')
-      setMessage('Missing order reference. Please try checking out again.')
+      setMessage('Missing checkout reference. Please try checking out again.')
       return
     }
 
     const verify = async () => {
       try {
-        const result = await verifySquarePayment({
-          orderId: localOrderId,
-          transactionId: transactionId || undefined,
-          squareOrderId: squareOrderId || undefined,
-        })
+        const payload: {
+          sessionId?: string
+          orderId?: string
+          transactionId?: string
+          squareOrderId?: string
+        } = sessionId
+          ? {
+              sessionId,
+              transactionId: transactionId || undefined,
+              squareOrderId: squareOrderId || undefined,
+            }
+          : {
+              orderId: legacyOrderId || undefined,
+              transactionId: transactionId || undefined,
+              squareOrderId: squareOrderId || undefined,
+            }
+
+        const result = await verifySquarePayment(payload)
 
         setOrder(result.order)
 
@@ -59,7 +74,7 @@ export default function Payments() {
     }
 
     verify()
-  }, [localOrderId, transactionId, squareOrderId])
+  }, [sessionId, legacyOrderId, referenceId, transactionId, squareOrderId])
 
   const summary = useMemo(() => {
     if (!order) return null
@@ -72,7 +87,7 @@ export default function Payments() {
     const finalTotal = Math.max(0, itemsTotal - discount + shipping)
 
     return {
-      id: order._id || localOrderId,
+      id: order._id || referenceId,
       itemsTotal,
       shipping,
       discount,

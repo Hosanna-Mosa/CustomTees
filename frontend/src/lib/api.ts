@@ -195,7 +195,8 @@ export const getAllShippingOptions = async (destination: any, weight?: number) =
 };
 
 export const verifySquarePayment = async (payload: {
-  orderId: string;
+  sessionId?: string;
+  orderId?: string;
   transactionId?: string;
   squareOrderId?: string;
   status?: string;

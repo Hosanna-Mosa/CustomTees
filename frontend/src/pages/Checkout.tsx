@@ -419,21 +419,27 @@ export default function Checkout() {
         shippingServiceCode: selectedShippingOption || null,
         shippingServiceName: transitInfo?.serviceName || null
       })
-      const order = (res as any).data || res
+      const responseData = (res as any).data || res
       
       if (paymentMethod === 'square') {
-        const checkoutUrl = (res as any)?.squareSession?.checkoutUrl || order?.payment?.checkoutUrl
+        const checkoutUrl =
+          responseData?.checkoutUrl ||
+          (res as any)?.squareSession?.checkoutUrl ||
+          responseData?.payment?.checkoutUrl
+
         if (checkoutUrl) {
           toast.success('Redirecting you to Square to complete payment...')
           window.location.href = checkoutUrl
           return
         }
+
         toast.error('Unable to start Square checkout. Please contact support.')
         return
-      } else {
-        toast.success('Order placed successfully!')
-        navigate('/orders')
       }
+
+      const order = responseData
+      toast.success('Order placed successfully!')
+      navigate('/orders')
     } catch (e: any) {
       setErr(e?.message || 'Failed to place order')
       toast.error('Failed to place order')
