@@ -1,7 +1,8 @@
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'https://customtees-backend-d6t2.onrender.com/api'
+const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8000/api'
 const localurl = 'http://localhost:8000/api';
+const renderurl = 'https://customtees-backend-d6t2.onrender.com/api';
 
   
 function getAuthToken(): string | null {
@@ -159,7 +160,7 @@ export const api = {
   // Settings
   getSettings: () => request<{ success: boolean; data: any }>(`/settings`),
   updateSettings: (form: FormData) =>
-    request<{ success: boolean; data: any }>(`/settings`, { method: 'PUT', body: form, isForm: true }),
+    request<{ success: boolean; data: any }>(`/settings`, { method: 'PUT', body: form }),
 
   // Coupons
   getCoupons: () => request<{ success: boolean; data: any[] }>(`/coupons`),
