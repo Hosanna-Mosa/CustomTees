@@ -1,6 +1,6 @@
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8000/api'
+const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'https://customtees-backend-d6t2.onrender.com/api'
 const localurl = 'http://localhost:8000/api';
 const renderurl = 'https://customtees-backend-d6t2.onrender.com/api';
 
