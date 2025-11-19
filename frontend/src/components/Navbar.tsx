@@ -21,6 +21,7 @@ export const Navbar = () => {
     { name: "Custom T-shirts", path: "/" },
     { name: "Design Lab", path: "/customize" },
     { name: "Products", path: "/products" },
+    { name: "DTF", path: "/dtf" },
     { name: "My Designs", path: "/my-designs" },
   ];
 

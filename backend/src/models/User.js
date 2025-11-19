@@ -37,12 +37,12 @@ const userSchema = new mongoose.Schema(
         },
         productModel: {
           type: String,
-          enum: ['Product', 'CasualProduct'],
+          enum: ['Product', 'CasualProduct', 'DTFProduct'],
           default: 'Product',
         },
         productType: {
           type: String,
-          enum: ['custom', 'casual'],
+          enum: ['custom', 'casual', 'dtf'],
           default: 'custom',
         },
         productName: { type: String, required: true },
@@ -68,6 +68,12 @@ const userSchema = new mongoose.Schema(
         totalPrice: { type: Number, required: true },
         quantity: { type: Number, default: 1 },
         instruction: { type: String },
+        dtfPrintFile: {
+          url: { type: String },
+          publicId: { type: String },
+          fileName: { type: String },
+          preview: { type: String },
+        },
         addedAt: { type: Date, default: Date.now },
       },
     ],

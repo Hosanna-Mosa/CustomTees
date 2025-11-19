@@ -1,10 +1,16 @@
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'https://customtees-backend-d6t2.onrender.com/api'
-const localurl = 'http://localhost:8000/api';
-const renderurl = 'https://customtees-backend-d6t2.onrender.com/api';
+const resolveBaseUrl = () => {
+  const envBase = (import.meta as any).env?.VITE_API_BASE
+  if (envBase) return envBase
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://localhost:8000/api'
+  }
+  return 'https://customtees-backend-d6t2.onrender.com/api'
+}
 
-  
+const API_BASE = resolveBaseUrl()
+
 function getAuthToken(): string | null {
   return localStorage.getItem('admin_auth_token')
 }
@@ -151,6 +157,23 @@ export const api = {
     }),
   deleteCasualProduct: (id: string) =>
     request<{ success: boolean; message: string }>(`/casual-products/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // DTF Products
+  getDTFProducts: () => request<{ success: boolean; data: any[] }>(`/dtf-products`),
+  createDTFProduct: (form: FormData) =>
+    request<{ success: boolean; data: any }>(`/dtf-products`, {
+      method: 'POST',
+      body: form,
+    }),
+  updateDTFProduct: (id: string, form: FormData) =>
+    request<{ success: boolean; data: any }>(`/dtf-products/${id}`, {
+      method: 'PUT',
+      body: form,
+    }),
+  deleteDTFProduct: (id: string) =>
+    request<{ success: boolean; message: string }>(`/dtf-products/${id}`, {
       method: 'DELETE',
     }),
 

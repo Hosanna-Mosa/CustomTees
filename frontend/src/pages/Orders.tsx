@@ -243,13 +243,17 @@ export default function Orders() {
                         </div>
                       )}
                       {order.items?.map((item: any, index: number) => {
+                        const isDTF = item.productType === 'dtf';
                         const imageSrc =
+                          item.dtfPrintFile?.preview ||
+                          item.dtfPrintFile?.url ||
                           item.customDesign?.frontDesign?.previewImage ||
                           item.customDesign?.backDesign?.previewImage ||
                           item.frontDesign?.previewImage ||
                           item.backDesign?.previewImage ||
                           item.productImage ||
                           item.product?.images?.[0]?.url ||
+                          item.product?.image?.url ||
                           item.product?.image;
                         
                         const selectedSize =
@@ -286,10 +290,21 @@ export default function Orders() {
                             </div>
                             <div className="flex-1 min-w-0 w-full sm:w-auto">
                               <h4 className="font-bold text-sm sm:text-base mb-1.5 sm:mb-2 line-clamp-2">
-                                {item.product?.name || item.productName || 'Casual Product'}
+                                {item.product?.name || item.product?.title || item.productName || 'Casual Product'}
                               </h4>
                               <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-                                {(item.customDesign || item.frontDesign || item.backDesign) ? (
+                                {isDTF ? (
+                                  <>
+                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
+                                      DTF Print
+                                    </span>
+                                    {item.dtfPrintFile?.fileName && (
+                                      <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded-full text-xs">
+                                        {item.dtfPrintFile.fileName}
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (item.customDesign || item.frontDesign || item.backDesign) ? (
                                   <>
                                     <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
                                       Size: {selectedSize}

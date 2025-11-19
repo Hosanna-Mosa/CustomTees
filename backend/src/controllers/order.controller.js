@@ -1,6 +1,7 @@
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import CasualProduct from '../models/CasualProduct.js';
+import DTFProduct from '../models/DTFProduct.js';
 import User from '../models/User.js';
 import Coupon from '../models/Coupon.js';
 import { uploadDataUrl } from '../services/cloudinary.service.js';
@@ -14,18 +15,28 @@ export const createOrder = async (req, res) => {
     product = await CasualProduct.findById(productId);
     productModel = 'CasualProduct';
   }
+  if (!product) {
+    product = await DTFProduct.findById(productId);
+    productModel = 'DTFProduct';
+  }
   if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+  const unitPrice = product.price ?? product.cost;
   const item = {
     product: product._id,
     productModel,
-    productType: productModel === 'Product' ? 'custom' : 'casual',
-    productName: product.name,
+    productType:
+      productModel === 'Product'
+        ? 'custom'
+        : productModel === 'CasualProduct'
+        ? 'casual'
+        : 'dtf',
+    productName: product.name || product.title,
     productSlug: product.slug,
-    productImage: product.images?.[0]?.url,
+    productImage: product.images?.[0]?.url || product.image?.url,
     quantity,
-    price: product.price,
+    price: unitPrice,
   };
-  const total = product.price * quantity;
+  const total = unitPrice * quantity;
   const order = await Order.create({
     user: req.user._id,
     items: [item],
@@ -96,10 +107,27 @@ export const createOrderFromCart = async (req, res) => {
       const isCustom = cartItem.productType === 'custom';
       const frontDesign = isCustom ? await normalizeSideDesign(cartItem.frontDesign) : undefined;
       const backDesign = isCustom ? await normalizeSideDesign(cartItem.backDesign) : undefined;
+
+      const productModelName =
+        cartItem.productModel ||
+        (cartItem.productType === 'casual'
+          ? 'CasualProduct'
+          : cartItem.productType === 'dtf'
+          ? 'DTFProduct'
+          : 'Product');
+
+      const productTypeName =
+        cartItem.productType ||
+        (productModelName === 'CasualProduct'
+          ? 'casual'
+          : productModelName === 'DTFProduct'
+          ? 'dtf'
+          : 'custom');
+
       orderItems.push({
         product: cartItem.productId,
-        productModel: cartItem.productModel || (isCustom ? 'Product' : 'CasualProduct'),
-        productType: cartItem.productType || (isCustom ? 'custom' : 'casual'),
+        productModel: productModelName,
+        productType: productTypeName,
         productName: cartItem.productName,
         productSlug: cartItem.productSlug,
         productImage: cartItem.productImage,
@@ -108,6 +136,7 @@ export const createOrderFromCart = async (req, res) => {
         quantity: cartItem.quantity,
         price: cartItem.totalPrice,
         instruction: cartItem.instruction,
+        dtfPrintFile: productTypeName === 'dtf' ? cartItem.dtfPrintFile : undefined,
         customDesign: isCustom
           ? {
               frontDesign,
