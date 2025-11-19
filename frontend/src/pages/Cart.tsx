@@ -90,12 +90,23 @@ export default function Cart() {
             {cartItems.map((item) => (
               <Card key={item._id} className="overflow-hidden border-2 hover:shadow-lg transition-all duration-200">
                 <CardContent className="p-3 sm:p-4 md:p-6">
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 md:gap-6">
+                {(() => {
+                  const isDTF = item.productType === "dtf";
+                  const previewImage =
+                    item.dtfPrintFile?.preview ||
+                    item.dtfPrintFile?.url ||
+                    item.frontDesign?.previewImage ||
+                    item.backDesign?.previewImage ||
+                    item.customDesign?.frontDesign?.previewImage ||
+                    item.customDesign?.backDesign?.previewImage ||
+                    item.productImage;
+                  return (
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 md:gap-6">
                     {/* Product Image */}
                     <div className="w-full sm:w-24 md:w-32 h-40 sm:h-24 md:h-32 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-muted to-muted/50 shadow-md">
-                      {item.frontDesign?.previewImage || item.productImage ? (
+                      {previewImage ? (
                         <img
-                          src={item.frontDesign?.previewImage || item.productImage}
+                          src={previewImage}
                           alt={item.productName}
                           className="h-full w-full object-cover"
                         />
@@ -112,33 +123,47 @@ export default function Cart() {
                         <h3 className="text-base sm:text-lg font-bold text-foreground line-clamp-2">
                           {item.productName}
                         </h3>
-                        <div className="flex flex-wrap gap-2 text-xs sm:text-sm text-muted-foreground">
-                          {item.selectedSize && (
-                            <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
-                              Size: {item.selectedSize}
-                            </span>
-                          )}
-                          {item.selectedColor && (
-                            <span className="px-2 py-0.5 bg-secondary/50 rounded-full">
-                              {item.selectedColor}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground space-y-0.5">
-                          <p>
-                            Base: <span className="font-medium text-foreground">${item.basePrice.toFixed(2)}</span>
-                          </p>
-                          {(item.frontCustomizationCost ?? 0) > 0 && (
-                            <p>
-                              Front Design: <span className="font-medium text-foreground">${(item.frontCustomizationCost ?? 0).toFixed(2)}</span>
+                        {!isDTF && (
+                          <div className="flex flex-wrap gap-2 text-xs sm:text-sm text-muted-foreground">
+                            {item.selectedSize && (
+                              <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
+                                Size: {item.selectedSize}
+                              </span>
+                            )}
+                            {item.selectedColor && (
+                              <span className="px-2 py-0.5 bg-secondary/50 rounded-full">
+                                {item.selectedColor}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {isDTF ? (
+                          <div className="rounded-xl border border-dashed border-muted-foreground/40 bg-muted/20 p-3 text-xs sm:text-sm text-muted-foreground">
+                            <p className="font-semibold text-foreground">Print ready file attached</p>
+                            {item.dtfPrintFile?.fileName && (
+                              <p className="truncate text-xs mt-1">File: {item.dtfPrintFile.fileName}</p>
+                            )}
+                            <p className="mt-1">
+                              Unit Cost: <span className="font-semibold text-foreground">${item.basePrice.toFixed(2)}</span>
                             </p>
-                          )}
-                          {(item.backCustomizationCost ?? 0) > 0 && (
+                          </div>
+                        ) : (
+                          <div className="text-xs sm:text-sm text-muted-foreground space-y-0.5">
                             <p>
-                              Back Design: <span className="font-medium text-foreground">${(item.backCustomizationCost ?? 0).toFixed(2)}</span>
+                              Base: <span className="font-medium text-foreground">${item.basePrice.toFixed(2)}</span>
                             </p>
-                          )}
-                        </div>
+                            {(item.frontCustomizationCost ?? 0) > 0 && (
+                              <p>
+                                Front Design: <span className="font-medium text-foreground">${(item.frontCustomizationCost ?? 0).toFixed(2)}</span>
+                              </p>
+                            )}
+                            {(item.backCustomizationCost ?? 0) > 0 && (
+                              <p>
+                                Back Design: <span className="font-medium text-foreground">${(item.backCustomizationCost ?? 0).toFixed(2)}</span>
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Quantity and Actions */}
@@ -200,6 +225,8 @@ export default function Cart() {
                       </div>
                     </div>
                   </div>
+                  );
+                })()}
                 </CardContent>
               </Card>
             ))}

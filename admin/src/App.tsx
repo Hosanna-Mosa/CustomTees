@@ -13,6 +13,7 @@ import { Designs } from './pages/Designs'
 import { HomeSettings } from './pages/HomeSettings'
 import { Coupons } from './pages/Coupons'
 import { Templates } from './pages/Templates'
+import { DTFProducts } from './pages/DTFProducts'
 import { AdminLayout } from './components/AdminLayout'
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="products" element={<Products />} />
           <Route path="casual-products" element={<CasualProducts />} />
+          <Route path="dtf-products" element={<DTFProducts />} />
           <Route path="orders" element={<Orders />} />
           <Route path="users" element={<Users />} />
           <Route path="designs" element={<Designs />} />

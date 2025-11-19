@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Design from '../models/Design.js';
 import { hashPassword, comparePassword, signToken } from '../services/auth.service.js';
 import { generateVerificationCode, sendVerificationCode, sendPasswordResetSuccess } from '../services/email.service.js';
+import { uploadDataUrl } from '../services/cloudinary.service.js';
 
 export const signup = async (req, res) => {
   const errors = validationResult(req);
@@ -139,12 +140,20 @@ export const addToCart = async (req, res) => {
 
     if (!cartItem.productModel) {
       cartItem.productModel =
-        cartItem.productType === 'casual' ? 'CasualProduct' : 'Product';
+        cartItem.productType === 'casual'
+          ? 'CasualProduct'
+          : cartItem.productType === 'dtf'
+          ? 'DTFProduct'
+          : 'Product';
     }
 
     if (!cartItem.productType) {
       cartItem.productType =
-        cartItem.productModel === 'CasualProduct' ? 'casual' : 'custom';
+        cartItem.productModel === 'CasualProduct'
+          ? 'casual'
+          : cartItem.productModel === 'DTFProduct'
+          ? 'dtf'
+          : 'custom';
     }
 
     if (!cartItem.selectedColor) {
@@ -158,6 +167,31 @@ export const addToCart = async (req, res) => {
       cartItem.instruction = String(cartItem.instruction).trim();
       if (!cartItem.instruction) {
         delete cartItem.instruction;
+      }
+    }
+
+    if (cartItem.productType === 'dtf') {
+      if (!cartItem.dtfPrintFile) {
+        return res.status(400).json({ success: false, message: 'Print ready file is required for DTF products' });
+      }
+
+      if (cartItem.dtfPrintFile?.dataUrl?.startsWith('data:image')) {
+        try {
+          const uploaded = await uploadDataUrl(cartItem.dtfPrintFile.dataUrl, 'customtees/dtf/print-ready');
+          cartItem.dtfPrintFile = {
+            url: uploaded.url,
+            publicId: uploaded.public_id,
+            preview: uploaded.url,
+            fileName: cartItem.dtfPrintFile.fileName,
+          };
+        } catch (uploadErr) {
+          console.error('[Cart] Failed to upload DTF print file:', uploadErr);
+          return res.status(500).json({ success: false, message: 'Failed to upload print ready file' });
+        }
+      }
+
+      if (!cartItem.dtfPrintFile?.url) {
+        return res.status(400).json({ success: false, message: 'Invalid print ready file' });
       }
     }
     const dollar = (n) => `$${Number(n || 0).toFixed(2)}`;

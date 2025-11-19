@@ -39,6 +39,11 @@ export const fetchCasualProducts = async () => {
   return (res as any).data;
 };
 
+export const fetchDTFProducts = async () => {
+  const res = await request('/dtf-products');
+  return (res as any).data;
+};
+
 export const fetchCasualProductBySlug = async (slug: string) => {
   const res = await request(`/casual-products/slug/${slug}`);
   return (res as any).data;
@@ -51,6 +56,11 @@ export const fetchTemplates = async () => {
 
 export const fetchProductBySlug = async (slug: string) => {
   const res = await request(`/products/${slug}`);
+  return (res as any).data;
+};
+
+export const fetchDTFProductBySlug = async (slug: string) => {
+  const res = await request(`/dtf-products/slug/${slug}`);
   return (res as any).data;
 };
 
