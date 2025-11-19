@@ -130,15 +130,13 @@ export function Coupons() {
         maxDiscount: 
           formData.maxDiscount === null || 
           formData.maxDiscount === undefined || 
-          formData.maxDiscount === 0 || 
-          formData.maxDiscount === '' 
+          formData.maxDiscount === 0
             ? null 
             : Number(formData.maxDiscount),
         usageLimit: 
           formData.usageLimit === null || 
           formData.usageLimit === undefined || 
-          formData.usageLimit === 0 || 
-          formData.usageLimit === '' 
+          formData.usageLimit === 0
             ? null 
             : Number(formData.usageLimit),
         minPurchase: formData.minPurchase ? Number(formData.minPurchase) : 0,
