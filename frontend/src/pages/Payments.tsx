@@ -16,9 +16,10 @@ export default function Payments() {
   const location = useLocation()
   const searchParams = new URLSearchParams(location.search)
 
-  const transactionId = searchParams.get('transactionId')
-  const squareOrderId = searchParams.get('orderId')
-  const sessionId = searchParams.get('sessionId')
+  // Square might send payment info in various query param formats
+  const transactionId = searchParams.get('transactionId') || searchParams.get('payment_id') || searchParams.get('paymentId') || searchParams.get('tender_id') || searchParams.get('tenderId')
+  const squareOrderId = searchParams.get('orderId') || searchParams.get('order_id') || searchParams.get('squareOrderId')
+  const sessionId = searchParams.get('sessionId') || searchParams.get('session_id')
   const legacyOrderId = searchParams.get('localOrderId')
   const referenceId = sessionId || legacyOrderId
 

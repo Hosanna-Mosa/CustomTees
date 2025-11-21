@@ -21,6 +21,10 @@ if (SQUARE_ACCESS_TOKEN && SQUARE_LOCATION_ID && SquareClient && SquareEnvironme
   });
 }
 
+const SQUARE_API_BASE_URL = (SQUARE_ENVIRONMENT || 'sandbox').toLowerCase() === 'production'
+  ? 'https://connect.squareup.com'
+  : 'https://connect.squareupsandbox.com';
+
 export const isSquareConfigured = () => Boolean(squareClient);
 
 function assertSquareConfigured() {
@@ -29,6 +33,29 @@ function assertSquareConfigured() {
       'Square payments are not configured. Please set SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID.'
     );
   }
+}
+
+async function squareHttp(path, { method = 'GET', body } = {}) {
+  if (!SQUARE_ACCESS_TOKEN) {
+    throw new Error('Missing SQUARE_ACCESS_TOKEN');
+  }
+
+  const response = await fetch(`${SQUARE_API_BASE_URL}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+      'Square-Version': '2024-01-18',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Square API ${method} ${path} failed: ${response.status} ${text}`);
+  }
+
+  return response.json();
 }
 
 const cents = (amount = 0) => Math.max(0, Math.round(Number(amount || 0) * 100));
@@ -44,14 +71,6 @@ export async function createSquareCheckoutSession({
   redirectUrl,
 }) {
   assertSquareConfigured();
-
-  const checkoutClient = squareClient.checkout?.paymentLinks
-    ? squareClient.checkout.paymentLinks
-    : squareClient.checkout;
-
-  if (!checkoutClient || typeof checkoutClient.create !== 'function') {
-    throw new Error('Square checkout client unavailable');
-  }
 
   const idempotencyKey = crypto.randomUUID();
 
@@ -87,6 +106,14 @@ export async function createSquareCheckoutSession({
     lineItems,
     discounts: discounts.length ? discounts : undefined,
   };
+
+  const checkoutClient = squareClient.checkout?.paymentLinks
+    ? squareClient.checkout.paymentLinks
+    : squareClient.checkout;
+
+  if (!checkoutClient || typeof checkoutClient.create !== 'function') {
+    throw new Error('Square checkout client unavailable');
+  }
 
   const paymentLinkResponse = await checkoutClient.create({
     idempotencyKey,
@@ -133,6 +160,40 @@ export async function retrieveSquarePayment(paymentId) {
   const paymentsClient = squareClient.payments;
   const response = await paymentsClient.get({ paymentId });
   return response?.payment;
+}
+
+export async function retrievePaymentLink(checkoutId) {
+  assertSquareConfigured();
+  try {
+    const response = await squareHttp(`/v2/checkout/payment-links/${checkoutId}`);
+    return response?.payment_link || response?.paymentLink || null;
+  } catch (err) {
+    console.error('[Square] Error retrieving payment link:', err?.message);
+    return null;
+  }
+}
+
+export async function searchPaymentsByOrder(orderId) {
+  assertSquareConfigured();
+  try {
+    const response = await squareHttp('/v2/payments/search', {
+      method: 'POST',
+      body: {
+        query: {
+          filter: {
+            orderFilter: {
+              orderIds: [orderId],
+            },
+          },
+        },
+        limit: 10,
+      },
+    });
+    return response?.payments || [];
+  } catch (err) {
+    console.warn('[Square] Error in searchPayments:', err?.message);
+    return [];
+  }
 }
 
 

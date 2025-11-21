@@ -50,3 +50,7 @@ checkoutSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 export default mongoose.model('CheckoutSession', checkoutSessionSchema);
 
 
+
+
+
+
